@@ -258,7 +258,8 @@ void CommandReceiver::receive()
 		std::string name;
 		ipc >> name;
 		auto cam = context->createObject<Camera>(name);
-		ipc >>cam->pos >> cam->dir >> cam->view >> cam->proj >> cam->viewport;
+		ipc >>cam->pos >> cam->dir >> cam->view >> cam->proj 
+			>> cam->viewport.TopLeftX >> cam->viewport.TopLeftY >> cam->viewport.Width  >> cam->viewport.Height >> cam->viewport.MinDepth >> cam->viewport.MaxDepth;
 		return true;
 	};
 
