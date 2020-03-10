@@ -47,7 +47,7 @@ public:
 	void receive(void* buffer, size_t size);
 
 	template<class T>
-	SimpleIPC& operator << (T&& v)
+	SimpleIPC& operator << (const T& v)
 	{
 		send(&v, sizeof(T));
 

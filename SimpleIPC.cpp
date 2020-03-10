@@ -2,7 +2,10 @@
 #include <algorithm>
 #undef min
 #undef max
-static void check(HRESULT hr)
+
+
+
+static void Check(HRESULT hr)
 {
 	assert(hr == S_OK && "error");
 }
@@ -108,7 +111,7 @@ void SimpleIPC::Channal::create(const std::string& name)
 	{
 		mHandle = ::OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, (name + "_sm").c_str());
 	}
-	check(::GetLastError());
+	Check(::GetLastError());
 	assert(mHandle != NULL && "faild to create file mapping");
 	map();
 

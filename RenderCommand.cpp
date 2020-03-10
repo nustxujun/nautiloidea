@@ -1,3 +1,5 @@
+#ifdef _CONSOLE
+
 #include "RenderCommand.h"
 #include "RenderContext.h"
 #include "D3DHelper.h"
@@ -335,3 +337,4 @@ void CommandReceiver::receive()
 
 
 
+#endif

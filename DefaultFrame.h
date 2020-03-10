@@ -1,3 +1,4 @@
+#ifdef NO_UE4
 #pragma once
 
 
@@ -159,3 +160,4 @@ public:
 };
 
 
+#endif
