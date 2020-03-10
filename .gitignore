@@ -1,0 +1,11 @@
+CMakeFiles/
+.vs/
+nautiloidea.dir/
+x64/
+Debug/
+*.vcxproj
+*.filters
+cmake_install.cmake
+CMakeCache.txt
+*.sln
+*.user
