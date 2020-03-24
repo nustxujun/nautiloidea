@@ -9,7 +9,7 @@
 
 #include "RenderCommand.h"
 #include <array>
-
+#include <chrono>
 class DefaultFrame :public RenderContext, public Framework
 {
 public:
@@ -17,7 +17,8 @@ public:
 	std::shared_ptr<DefaultPipeline> pipeline;
 	Renderer::ConstantBuffer::Ptr commonConsts;
 	float deltaTime = 0;
-
+	float time = 0;
+	std::chrono::high_resolution_clock::time_point timepoint;
 public:
 	void init(bool runwithipc = false)
 	{
@@ -71,27 +72,24 @@ public:
 		commonConsts->setVariable("sundir", &sundir);
 		commonConsts->setVariable("suncolor", &suncolor);
 		commonConsts->setVariable("deltatime", &deltaTime);
-
+		commonConsts->setVariable("time", &time);
+		
 	}
 
 	void updateImpl()
 	{
-		static auto lastTime = GetTickCount64();
-		static auto framecount = 0;
-		auto cur = GetTickCount64();
-		auto delta = cur - lastTime;
-		framecount++;
-		if (delta > 0)
+		static auto lastTime = std::chrono::high_resolution_clock::now();
+		auto cur = std::chrono::high_resolution_clock::now();
+		deltaTime = (cur - lastTime).count() / 1000000000.0f;
+		time += deltaTime;
 		{
 			lastTime = cur;
-			deltaTime = (float)framecount * 1000.0f / (float)delta;
-			framecount = 0;
-			static float history = deltaTime;
-			history = history * 0.99f + deltaTime * 0.01f;
+			static float history = 60;
+			history = history * 0.99f +  (1.0f / deltaTime) * 0.01f;
 
 			std::stringstream ss;
 			ss.precision(4);
-			ss << history << "(" << 1000.0f / history << "ms)";
+			ss << history << "(" <<  1000.0f / history<< "ms)";
 			::SetWindowTextA(Renderer::getSingleton()->getWindow(), ss.str().c_str());
 		}
 
@@ -114,26 +112,15 @@ public:
 
 		for (auto& model : mRenderList)
 		{
-			model->vcbuffer->setVariable("view", &cam->view);
-			model->vcbuffer->setVariable("proj", &cam->proj);
-			model->vcbuffer->setVariable("world", &model->transform);
-			model->vcbuffer->setVariable("nworld", &model->normTransform);
 
-			struct Renderable
-			{
-				Mesh::SubMesh* sm;
-				Mesh::Ptr m;
-			};
 
 			UINT numMaterials = model->materials.size();
-			std::vector<std::vector<Renderable>> subs(numMaterials);
+			std::vector<std::vector<Mesh::SubMesh*>> subs(numMaterials);
 			
-			for (auto& mesh : model->meshs)
+			auto mesh = model->mesh;
+			for (auto& sm : mesh->submeshes)
 			{
-				for (auto& sm : mesh->submeshes)
-				{
-					subs[sm.materialIndex].push_back({&sm, mesh});
-				}
+				subs[sm.materialIndex].push_back(&sm);
 			}
 			
 			for (UINT i = 0; i < numMaterials; ++i)
@@ -141,7 +128,22 @@ public:
 				auto& material = model->materials[i];
 				material->applyTextures();
 				auto& pso = material->pipelineState;
-				pso->setVSConstant("VSConstant", model->vcbuffer);
+
+				model->visitConstant(Renderer::Shader::ST_VERTEX, i, [&](auto& cbuffer) {
+					cbuffer->setVariable("view", &cam->view);
+					cbuffer->setVariable("proj", &cam->proj);
+					cbuffer->setVariable("world", &model->transform);
+					cbuffer->setVariable("nworld", &model->normTransform);
+					pso->setVSConstant("VSConstant", cbuffer);
+				});
+
+				model->visitConstant(Renderer::Shader::ST_PIXEL, i, [&](auto& cbuffer) {
+					cbuffer->setVariable("objpos", &model->aabb.center);
+					cbuffer->setVariable("objradius", &model->boundingradius);
+					pso->setPSConstant("PSConstant", cbuffer);
+				});
+
+
 				if (commonConsts)
 					pso->setPSConstant("CommonConstants", commonConsts);
 
@@ -149,9 +151,9 @@ public:
 
 				for (auto& sm : subs[i])
 				{
-					cmdlist->setVertexBuffer(sm.m->vertices);
-					cmdlist->setIndexBuffer(sm.m->indices);
-					cmdlist->drawIndexedInstanced(sm.sm->numIndices, 1U, sm.sm->startIndex);
+					cmdlist->setVertexBuffer(mesh->vertices);
+					cmdlist->setIndexBuffer(mesh->indices);
+					cmdlist->drawIndexedInstanced(sm->numIndices, 1U, sm->startIndex);
 				}
 			}
 		}

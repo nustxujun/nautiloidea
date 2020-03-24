@@ -5,131 +5,7 @@
 #include "D3DHelper.h"
 #include <iostream>
 
-//RenderCommand* RenderCommand::instance = 0;
-//
-//
-//
-//RenderCommand::RenderCommand()
-//{
-//
-//}
-//
-//RenderCommand::~RenderCommand()
-//{
-//	mIPC.close();
-//}
-//
-//void RenderCommand::init(bool host)
-//{
-//	if (host)
-//		mIPC.listen("renderstation");
-//	else
-//		mIPC.connect("renderstation");
-//}
-//
-//void RenderCommand::done()
-//{
-//	mIPC << "done";
-//}
-//
-//void RenderCommand::invalid()
-//{
-//	mIPC << "invalid";
-//	mIPC.invalid();
-//}
-//void RenderCommand::invalidSelf()
-//{
-//	mIPC.invalid();
-//}
-//
-//void RenderCommand::createMesh(
-//	const std::string & name, 
-//	const void * vertices, 
-//	UINT32 bytesofvertices, 
-//	UINT32 numvertices, 
-//	UINT32 vertexStride,
-//	const void * indices, 
-//	UINT32 bytesofindices, 
-//	UINT32 numindices,
-//	UINT32 indexStride,
-//	const std::vector<SubMesh>& submeshs)
-//{
-//	mIPC << "createMesh";
-//	
-//	mIPC << name;
-//	mIPC << bytesofvertices;
-//	mIPC << numvertices;
-//	mIPC << vertexStride;
-//	mIPC.send(vertices, bytesofvertices);
-//
-//
-//	mIPC << bytesofindices;
-//	mIPC << numindices;
-//	mIPC << indexStride;
-//	mIPC.send(indices, bytesofindices);
-//
-//	mIPC << (UINT)submeshs.size();
-//	for (auto& sm : submeshs)
-//		mIPC << sm;
-//
-//}
-//
-//void RenderCommand::createTexture(const std::string & name, int width, int height, DXGI_FORMAT format, bool srgb, const void* data)
-//{
-//	mIPC << "createTexture";
-//
-//	UINT32 size = D3DHelper::sizeof_DXGI_FORMAT(format) * width * height;
-//	mIPC << name << width << height << format << srgb << size ;
-//	mIPC.send(data, size);
-//}
-//
-//void RenderCommand::createModel(const std::string & name, const std::vector<std::string> meshs, const Matrix & transform, const Matrix& normaltransform, const std::vector<std::string>& materialNames)
-//{
-//	mIPC << "createModel";
-//	mIPC << name;
-//	UINT32 size = meshs.size();
-//	mIPC << size;
-//	for (auto& m : meshs)
-//		mIPC << m;
-//
-//	mIPC << transform<< normaltransform;
-//	mIPC << (UINT) materialNames.size();
-//	for (auto& m:materialNames)
-//		mIPC << m;
-//}
-//
-//void RenderCommand::createCamera(const std::string & name, const Vector3& pos, const Vector3& dir, const Matrix & view, const Matrix & proj, const D3D12_VIEWPORT & vp)
-//{
-//	mIPC << "createCamera" <<  name<< pos << dir << view << proj << vp;
-//
-//}
-//
-//void RenderCommand::createMaterial(const std::string & name, const std::string & vs, const std::string & ps, const std::string& pscontent, const std::set< std::string>& textures)
-//{
-//	mIPC << "createMaterial" << name << vs << ps << pscontent;
-//
-//	mIPC << (UINT32)textures.size();
-//	for (auto& t: textures)
-//		mIPC << t;
-//
-//}
-//
-//void RenderCommand::createLight(const std::string& name, UINT32 type, const Color& color, const Vector3& dir)
-//{
-//	mIPC << "createLight" << name << type << color << dir;
-//}
-//
-//void RenderCommand::createReflectionProbe(const std::string& name, const Matrix& transform, float influence, float brightness, UINT cubesize, const void* data, UINT size)
-//{
-//	mIPC << "createReflectionProbe" << name << transform << influence << brightness << cubesize;
-//	mIPC << size;
-//	mIPC.send(data, size);
-//}
-//
-//void RenderCommand::createSky(const std::string & name, const std::string & mesh, const std::string & material,const Matrix& transform)
-//{
-//	mIPC << "createSky" << name << mesh << material << transform;
-//}
+
 
 void CommandReceiver::init(bool host)
 {
@@ -211,15 +87,12 @@ void CommandReceiver::receive()
 
 		UINT32 meshcount;
 		ipc >> meshcount;
-		for (UINT32 i = 0; i < meshcount; ++i)
-		{
-			std::string meshname;
-			ipc >> meshname;
-			auto mesh = context->getObject<Mesh>(meshname);
-			model->meshs.push_back(mesh);
-		}
-		
-		ipc >> model->transform >> model->normTransform;
+		std::string meshname;
+		ipc >> meshname;
+		auto mesh = context->getObject<Mesh>(meshname);
+		model->mesh =  mesh;
+
+		ipc >> model->transform >> model->normTransform >> model->aabb;
 		UINT  numMaterials;
 		ipc >> numMaterials;
 		for (UINT i = 0; i < numMaterials; ++i)
@@ -295,10 +168,13 @@ void CommandReceiver::receive()
 		Matrix world;
 		ipc >> name >> mesh >> material >> world;
 
-		auto env = context->createObject<Environment>(name);
+		auto env = context->createObject<Sky>(name);
 		env->mesh = context->getObject<Mesh>(mesh);
 		env->material = context->getObject<Material>(material);
 		env->transform = world;
+		ipc >> env->aabb;
+
+		env->init();
 		return true;
 	};
 
