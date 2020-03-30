@@ -36,6 +36,7 @@ collectSourceFiles(sourcefiles Engine)
 
 add_definitions(-D_CONSOLE)
 add_definitions(-DNO_UE4)
+add_definitions(-DWIN32_LEAN_AND_MEAN)
 
 if (${IsOnWin7} STREQUAL ON)
     add_definitions(-DD3D12ON7)
