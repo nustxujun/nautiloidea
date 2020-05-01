@@ -98,12 +98,9 @@ public:
 
 	}
 
-	void renderScene(Camera::Ptr cam, UINT, UINT)
+	void renderScene(Renderer::CommandList::Ref cmdlist, Camera::Ptr cam, UINT, UINT)
 	{
 		auto renderer = Renderer::getSingleton();
-		auto cmdlist = renderer->getCommandList();
-
-
 		cmdlist->setViewport(cam->viewport);
 
 		cmdlist->setScissorRect({ 0,0, (LONG)cam->viewport.Width, (LONG)cam->viewport.Height });
@@ -114,15 +111,15 @@ public:
 		{
 
 
-			UINT numMaterials = model->materials.size();
+			UINT numMaterials = (UINT)model->materials.size();
 			std::vector<std::vector<Mesh::SubMesh*>> subs(numMaterials);
-			
+
 			auto mesh = model->mesh;
 			for (auto& sm : mesh->submeshes)
 			{
 				subs[sm.materialIndex].push_back(&sm);
 			}
-			
+
 			for (UINT i = 0; i < numMaterials; ++i)
 			{
 				auto& material = model->materials[i];
@@ -135,13 +132,13 @@ public:
 					cbuffer->setVariable("world", &model->transform);
 					cbuffer->setVariable("nworld", &model->normTransform);
 					pso->setVSConstant("VSConstant", cbuffer);
-				});
+					});
 
 				model->visitConstant(Renderer::Shader::ST_PIXEL, i, [&](auto& cbuffer) {
 					cbuffer->setVariable("objpos", &model->aabb.center);
 					cbuffer->setVariable("objradius", &model->boundingradius);
 					pso->setPSConstant("PSConstant", cbuffer);
-				});
+					});
 
 
 				if (commonConsts)
@@ -157,6 +154,8 @@ public:
 				}
 			}
 		}
+
+		
 	}
 
 };
