@@ -6,6 +6,7 @@
 #include "Engine/Pipeline.h"
 #include "Engine/RenderContext.h"
 #include "Engine/Renderer.h"
+#include "Profile.h"
 
 #include "RenderCommand.h"
 #include <array>
