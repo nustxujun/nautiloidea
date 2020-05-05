@@ -4,43 +4,45 @@ set(CMAKE_SYSTEM_VERSION "10.0")
 
 project(nautiloidea)
 
+add_definitions(-D_CONSOLE)
+add_definitions(-DNO_UE4)
+add_definitions(-DWIN32_LEAN_AND_MEAN)
+
+#std::wstring_convert is deprecated in c++17, but there is no easy way to replace it. 
+#display warnings and remain using it
+add_definitions(-D_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
 set(IsOnWin7 FALSE CACHE BOOL "if operation system is win7" )
+
+
 
 
 include_directories(${CMAKE_SOURCE_DIR}/Engine)
 include_directories(${CMAKE_SOURCE_DIR}/dxsdk/Include)
 
-function(collectSourceFiles container subpath)
-if (${subpath} STREQUAL ${CMAKE_HOME_DIRECTORY})
-    file(GLOB files  ${CMAKE_HOME_DIRECTORY}/*.cpp ${CMAKE_HOME_DIRECTORY}/*.h)
-else()
-    file(GLOB_RECURSE files  ${subpath}/*.cpp ${subpath}/*.h)
-endif()
-    foreach(v ${files})
-        message(STATUS "collect file: " ${v})
-        string(REPLACE ${CMAKE_HOME_DIRECTORY}/ "" RELPATH ${v})
-        get_filename_component(FILTER ${RELPATH} DIRECTORY)
-        if (FILTER)
-            string(REPLACE / \\ FILTER ${FILTER})
-            source_group(${FILTER} FILES ${RELPATH})
-        else()
-            source_group("src" FILES ${RELPATH})
-        endif()
-    endforeach()
-    set(${container} ${${container}} ${files} PARENT_SCOPE)
-endfunction()
+file(GLOB headers *.h)
+source_group(src FILES ${headers})
+
+AUX_SOURCE_DIRECTORY(. localsources)
+source_group(src FILES ${localsources})
+
+file(GLOB engineheaders engine/*.h)
+source_group(engine FILES ${engineheaders})
+
+AUX_SOURCE_DIRECTORY(engine enginesources)
+source_group(engine FILES ${enginesources})
+
+AUX_SOURCE_DIRECTORY(engine/imgui imguisources)
+source_group(imgui FILES ${imguisources})
 
 
-collectSourceFiles(sourcefiles ${CMAKE_HOME_DIRECTORY})
-collectSourceFiles(sourcefiles Engine)
 
-add_definitions(-D_CONSOLE)
-add_definitions(-DNO_UE4)
-add_definitions(-DWIN32_LEAN_AND_MEAN)
+
 
 if (${IsOnWin7} STREQUAL ON)
     add_definitions(-DD3D12ON7)
 endif()
 
-add_executable(nautiloidea ${sourcefiles})
+add_executable(nautiloidea ${localsources} ${enginesources} ${headers} ${engineheaders} ${imguisources})
 
