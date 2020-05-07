@@ -16,9 +16,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
 set(IsOnWin7 FALSE CACHE BOOL "if operation system is win7" )
 
 
-
-
-include_directories(${CMAKE_SOURCE_DIR}/Engine)
 include_directories(${CMAKE_SOURCE_DIR}/dxsdk/Include)
 
 file(GLOB headers *.h)
@@ -27,22 +24,18 @@ source_group(src FILES ${headers})
 AUX_SOURCE_DIRECTORY(. localsources)
 source_group(src FILES ${localsources})
 
-file(GLOB engineheaders engine/*.h)
-source_group(engine FILES ${engineheaders})
 
-AUX_SOURCE_DIRECTORY(engine enginesources)
-source_group(engine FILES ${enginesources})
-
-AUX_SOURCE_DIRECTORY(engine/imgui imguisources)
-source_group(imgui FILES ${imguisources})
-
-
-
+set(ENGINE "engine")
+include_directories(${ENGINE})
+add_subdirectory(${ENGINE})
 
 
 if (${IsOnWin7} STREQUAL ON)
     add_definitions(-DD3D12ON7)
 endif()
 
-add_executable(nautiloidea ${localsources} ${enginesources} ${headers} ${engineheaders} ${imguisources})
+add_executable(nautiloidea ${localsources} ${enginesources} ${headers} )
 
+add_dependencies(nautiloidea hermitcrab)
+target_link_libraries(nautiloidea debug hermitcrab)
+target_link_libraries(nautiloidea optimized hermitcrab)
