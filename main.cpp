@@ -19,7 +19,7 @@ int main()
 
 		DefaultFrame frame;
 		try {
-			frame.init(true);
+			frame.init(false);
 			frame.update();
 		}
 		catch (...)

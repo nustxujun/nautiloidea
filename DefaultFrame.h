@@ -20,6 +20,7 @@ public:
 	float deltaTime = 0;
 	float time = 0;
 	std::chrono::high_resolution_clock::time_point timepoint;
+	Dispatcher dispatcher;
 public:
 	void init(bool runwithipc = false)
 	{
@@ -79,10 +80,17 @@ public:
 
 	void updateImpl()
 	{
+		PROFILE("frame update", {});
+		updateConsts();
+
+		pipeline->update();
+
+
 		static auto lastTime = std::chrono::high_resolution_clock::now();
 		auto cur = std::chrono::high_resolution_clock::now();
 		deltaTime = (cur - lastTime).count() / 1000000000.0f;
 		time += deltaTime;
+		lastTime = cur;
 		{
 			lastTime = cur;
 			static float history = 60;
@@ -90,12 +98,10 @@ public:
 
 			std::stringstream ss;
 			ss.precision(4);
-			ss << history << "(" <<  1000.0f / history<< "ms)";
-			::SetWindowTextA(Renderer::getSingleton()->getWindow(), ss.str().c_str());
+			ss << history << "(" << 1000.0f / history << "ms)";
+			if ((int(time * 100.0f) % 10) == 0)
+				::SetWindowTextA(Renderer::getSingleton()->getWindow(), ss.str().c_str());
 		}
-
-		updateConsts();
-		pipeline->update();
 
 	}
 
