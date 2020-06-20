@@ -19,17 +19,35 @@ static const int SCATTERING_TEXTURE_DEPTH = SCATTERING_TEXTURE_R_SIZE;
 static const int IRRADIANCE_TEXTURE_WIDTH = 64;
 static const int IRRADIANCE_TEXTURE_HEIGHT = 16;
 
+static const float2 IRRADIANCE_TEXTURE_SIZE = float2(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT);
+
 static const float PI = 3.14159265;
 static const float3  kGroundAlbedo = float3(0.0, 0.0, 0.04);
 
 sampler pointSampler: s0;
 sampler linearSampler: s1;
 
-Texture2D transmittanceTex;
-Texture3D scatteringTex;
-Texture3D single_mie_scatteringTex;
-Texture2D irradianceTex;
+Texture2D transmittance_texture;
+Texture3D scattering_texture;
+Texture3D delta_single_rayleigh_scattering_texture;
+Texture3D single_mie_scattering_texture;
+Texture3D delta_single_mie_scattering_texture;
 
+Texture2D irradiance_texture;
+Texture3D delta_multiple_scattering_texture;
+Texture2D delta_irradianceTex;
+Texture3D delta_scattering_density_texture;
+
+RWTexture2D<float4> transmittanceTex_o;
+RWTexture2D<float4> deltaIrradianceTex_o;
+RWTexture2D<float4> irradianceTex_o;
+
+RWTexture3D<float4> rayleigh_scatteringTex_o;
+RWTexture3D<float4> mie_scatteringTex_o;
+RWTexture3D<float4> scatteringTex_o;
+RWTexture3D<float4> single_mie_scatteringTex_o;
+RWTexture3D<float4> scattering_densityTex_o;
+RWTexture3D<float4> multiple_scatteringTex_o;
 struct DensityProfileLayer
 {
 	float width;
@@ -174,7 +192,6 @@ float3 calculateTransmittanceToAtmosphereTopTexture(AtmosphereParameters params,
 //	return float4(calculateTransmittanceToAtmosphereTopTexture(parameters, input.uv), 1);
 //}
 
-RWTexture2D<float4> transmittanceTex_o;
 
 [numthreads(1, 1, 1)]
 void precomputeTransmittanceToAtmosphereTop(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
@@ -387,7 +404,7 @@ void getRMuMuSNuFromScatteringTextureCoord(
 
 	float coord_nu = floor(coord.x / float(SCATTERING_TEXTURE_MU_S_SIZE));
 	float coord_mu_s = fmod(coord.x, float(SCATTERING_TEXTURE_MU_S_SIZE));
-	float4 uvwz = float4(coord_nu, coord_mu_s, coord.y, coord.z);
+	float4 uvwz = float4(coord_nu, coord_mu_s, coord.y, coord.z) / SCATTERING_TEXTURE_SIZE;
 
 	getRMuMuSNuFromScatteringTextureUvwz(params, uvwz, r,mu, mu_s, nu, intersect_ground);
 
@@ -411,18 +428,15 @@ void calculateSingleScatteringTexture(
 	calculateSingleScattering(params, transmittanceTexture, r, mu, mu_s, mu, intersect_ground, rayleigh, mie);
 }
 
-RWTexture3D<float4> rayleigh_scatteringTex_o;
-RWTexture3D<float4> mie_scatteringTex_o;
-RWTexture3D<float4> scatteringTex_o;
-RWTexture3D<float4> single_mie_scatteringTex_o;
+
 
 [numthreads(1,1,1)]
 void precomputeSingleScatteringTexture(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
 {
-	float3 uvw = (float3(globalIdx) + 0.5f)/ float3(SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH);
+	float3 uvw = (float3(globalIdx) + 0.5f);
 	float3 delta_rayleigh = 0;
 	float3 delta_mie = 0;
-	calculateSingleScatteringTexture(parameters, transmittanceTex, uvw, delta_rayleigh, delta_mie);
+	calculateSingleScatteringTexture(parameters, transmittance_texture, uvw, delta_rayleigh, delta_mie);
 
 	rayleigh_scatteringTex_o[globalIdx] = float4(delta_rayleigh, 1.0f);
 	mie_scatteringTex_o[globalIdx] = float4(delta_mie, 1.0f);
@@ -443,33 +457,32 @@ void getRMuSFromIrradianceTextureCoord(AtmosphereParameters params, float2 uv, o
 }
 
 
-float3 calculateDirectIrradiance(AtmosphereParameters params, Texture2D transmittanceTex, float r, float mu_s)
+float3 calculateDirectIrradiance(AtmosphereParameters params, Texture2D transmittance_texture, float r, float mu_s)
 {
 	float alpha_s = params.sun_angular_radius ;
 	float average_cosine_factor = mu_s < -alpha_s ? 0.0 : (mu_s > alpha_s ? mu_s :
 		(mu_s + alpha_s) * (mu_s + alpha_s) / (4.0 * alpha_s));
 
 	return params.solar_irradiance * 
-		getTransmittanceToAtmosphereTop(params, transmittanceTex, r, mu_s) * average_cosine_factor;
+		getTransmittanceToAtmosphereTop(params, transmittance_texture, r, mu_s) * average_cosine_factor;
 }
 
-float3 calculateDirectIrradianceTexture(AtmosphereParameters params, Texture2D transmittanceTex, float2 uv)
+float3 calculateDirectIrradianceTexture(AtmosphereParameters params, Texture2D transmittance_texture, float2 uv)
 {
 	float r; 
 	float mu_s;
-	getRMuSFromIrradianceTextureCoord(params, uv, r, mu_s);
+	getRMuSFromIrradianceTextureCoord(params, uv / IRRADIANCE_TEXTURE_SIZE, r, mu_s);
 
-	return calculateDirectIrradiance(params, transmittanceTex, r, mu_s);
+	return calculateDirectIrradiance(params, transmittance_texture, r, mu_s);
 }
 
-RWTexture2D<float4> deltaIrradianceTex_o;
-RWTexture2D<float4> irradianceTex_o;
+
 
 [numthreads(1, 1, 1)]
 void precomputeDirectIrradiance(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
 {
-	float2 uv = (float2(globalIdx.xy) + 0.5f) / float2(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT) ;
-	float3 result = calculateDirectIrradianceTexture( parameters, transmittanceTex, uv);
+	float2 uv = (float2(globalIdx.xy) + 0.5f) ;
+	float3 result = calculateDirectIrradianceTexture( parameters, transmittance_texture, uv);
 	deltaIrradianceTex_o[globalIdx.xy] = float4(result,1.0f);
 	irradianceTex_o[globalIdx.xy] = 0;
 }
@@ -505,7 +518,6 @@ float4 getScatteringTextureUvwzFromRMuMuSNu(AtmosphereParameters params,
 			(d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
 	}
 
-	/* 对于mu_s,借用地表上有相同mu_s的点进行映射 */
 	float d = distanceToAtmosphereTop(
 		params, params.bottom_radius, mu_s);
 	float	d_min = params.top_radius - params.bottom_radius;
@@ -514,7 +526,7 @@ float4 getScatteringTextureUvwzFromRMuMuSNu(AtmosphereParameters params,
 	float	A = -2.0 * params.mu_s_min * params.bottom_radius / (d_max - d_min);
 	float	u_mu_s = getTextureCoordFromUnitRange(max(1.0 - a / A, 0.0) / (1.0 + a),
 		SCATTERING_TEXTURE_MU_S_SIZE);
-	float u_nu = (nu + 1.0) / 2.0; //将nu从[-1,1]映射到[0,1]
+	float u_nu = (nu + 1.0) / 2.0; 
 	return float4(u_nu, u_mu_s, u_mu, u_r);
 }
 
@@ -572,9 +584,6 @@ float3 getScattering(
 
 float3 calculateIndirectIrradiance(
 	AtmosphereParameters params,
-	Texture3D single_rayleigh_scattering_texture,
-	Texture3D single_mie_scattering_texture,
-	Texture3D multiple_scattering_texture,
 	float r, float mu_s, int scattering_order
 )
 {
@@ -592,8 +601,8 @@ float3 calculateIndirectIrradiance(
 				float3(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta));
 			float domega = (dtheta ) * (dphi ) * sin(theta) ;
 			float nu = dot(omega, omega_s);
-			result += getScattering(params, single_rayleigh_scattering_texture,
-				single_mie_scattering_texture, multiple_scattering_texture,
+			result += getScattering(params, delta_single_rayleigh_scattering_texture,
+				delta_single_mie_scattering_texture, delta_multiple_scattering_texture,
 				r, omega.z, mu_s, nu, false /* ray_r_theta_intersects_ground */,
 				scattering_order) * omega.z * domega;
 		}
@@ -603,9 +612,6 @@ float3 calculateIndirectIrradiance(
 
 float3 calculateIndirectIrradianceTexture(
 	AtmosphereParameters params,
-	Texture3D single_rayleigh_scattering_texture,
-	Texture3D single_mie_scattering_texture,
-	Texture3D multiple_scattering_texture,
 	float2 uv,
 	int scattering_order)
 {
@@ -613,46 +619,40 @@ float3 calculateIndirectIrradianceTexture(
 	float mu_s;
 	getRMuSFromIrradianceTextureCoord(
 		params,
-		uv,
+		uv / IRRADIANCE_TEXTURE_SIZE,
 		r,
 		mu_s
 	);
 	return calculateIndirectIrradiance(
 		params, 
-		single_rayleigh_scattering_texture,
-		single_mie_scattering_texture,
-		multiple_scattering_texture,
-		r, mu_s, scattering_order);
+		r, mu_s, scattering_order) ;
 }
 
-//[numthreads(1,1,1)]
-//void precomputeIndirectIrradianceTexture(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
-//{
-//	float2 uv = float2(globalIdx.xy) / float2(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT) ;
-//
-//	float3 delta_irradiance = calculateIndirectIrradianceTexture(
-//		parameters, single_rayleigh_scattering_texture,
-//		single_mie_scattering_texture, multiple_scattering_texture,
-//		gl_FragCoord.xy, scattering_order);
-//
-//	deltaIrradianceTex[globalIdx.xy] = float4(delta_irradiance, 1.0f);
-//	irradiance[globalIdx.xy] = 0;
-//}
-
-// final pass =============================================================================================================
-cbuffer AtmosphericScatteringFinal
+cbuffer MultipleScatteringConsts
 {
-	float3 camera;
-	float earth_radius;
-	float3 view_dir;
-	float sun_tan;
-	float3 sun_dir;
-	float sun_cos;
-	float exposure;
+	int scattering_order;
 };
 
-const static float3 earth_center = 0;
 
+[numthreads(1, 1, 1)]
+void precomputeIndirectIrradiance(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
+{
+	float2 uv = float2(globalIdx.xy) + 0.5;
+
+	float4 delta_irradiance = float4(calculateIndirectIrradianceTexture(
+		parameters,uv, scattering_order), 1.0f);
+
+	deltaIrradianceTex_o[globalIdx.xy] = delta_irradiance;
+	irradianceTex_o[globalIdx.xy] += delta_irradiance;
+}
+
+// scattering density ==================================================================================================
+
+bool rayIntersectsGround(AtmosphereParameters params,
+	float r, float mu) {
+	return(mu < 0.0 && r * r * (mu * mu - 1.0) +
+		params.bottom_radius * params.bottom_radius >= 0.0);
+}
 
 
 float2 getIrradianceTextureCoordFromRMuS(float r, float mu_s)
@@ -660,24 +660,178 @@ float2 getIrradianceTextureCoordFromRMuS(float r, float mu_s)
 	float x_r = (r - parameters.bottom_radius) / (parameters.top_radius - parameters.bottom_radius);
 	float x_mu_s = mu_s * 0.5f + 0.5f;
 	return float2(
-		getTextureCoordFromUnitRange(x_mu_s, IRRADIANCE_TEXTURE_WIDTH), 
+		getTextureCoordFromUnitRange(x_mu_s, IRRADIANCE_TEXTURE_WIDTH),
 		getTextureCoordFromUnitRange(x_r, IRRADIANCE_TEXTURE_HEIGHT));
 }
+
+
 
 float3 getIrradiance(float r, float mu_s)
 {
 	float2 uv = getIrradianceTextureCoordFromRMuS(r, mu_s);
-	return irradianceTex.SampleLevel(pointSampler, uv, 0).rgb;
+	return irradiance_texture.SampleLevel(pointSampler, uv, 0).rgb;
 }
+
+float3 calculateScatteringDensity(
+	AtmosphereParameters atmosphere,
+	float r, float mu, float mu_s, float nu, int scattering_order) {
+	float3 zenith_direction = float3(0.0, 0.0, 1.0);
+	float3	omega = float3(sqrt(1.0 - mu * mu), 0.0, mu);
+	float	sun_dir_x = omega.x == 0.0 ? 0.0 : (nu - mu * mu_s) / omega.x;
+	float	sun_dir_y = sqrt(max(1.0 - sun_dir_x * sun_dir_x - mu_s * mu_s, 0.0));
+	float3	omega_s = float3(sun_dir_x, sun_dir_y, mu_s);
+	const int		SAMPLE_COUNT = 16;
+	const float		dphi = PI / float(SAMPLE_COUNT);
+	const float		dtheta = PI / float(SAMPLE_COUNT);
+	float3 rayleigh_mie = 0.0;
+	for (int l = 0; l < SAMPLE_COUNT; ++l) {
+		float	theta = (float(l) + 0.5) * dtheta;
+		float	cos_theta = cos(theta);
+		float	sin_theta = sin(theta);
+		bool ray_r_theta_intersects_ground = rayIntersectsGround(atmosphere, r, cos_theta);
+		float	distance_to_ground = 0.0 ;
+		float3 transmittance_to_ground = 0.0;
+		float3 ground_albedo = 0.0;
+		if (ray_r_theta_intersects_ground) {
+			distance_to_ground = distanceToAtmosphereBottom(atmosphere, r, cos_theta);
+			transmittance_to_ground =
+				getTransmittance(atmosphere, transmittance_texture, r, cos_theta,
+					distance_to_ground, true );
+			ground_albedo = atmosphere.ground_albedo;
+		}
+		for (int m = 0; m < 2 * SAMPLE_COUNT; ++m) {
+			float phi = (float(m) + 0.5) * dphi;
+			float3 omega_i = float3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
+			float domega_i = (dtheta) * (dphi ) * sin(theta);
+			float nu1 = dot(omega_s, omega_i);
+			float3 incident_radiance = getScattering(atmosphere,
+				delta_single_rayleigh_scattering_texture, delta_single_mie_scattering_texture,
+				delta_multiple_scattering_texture, r, omega_i.z, mu_s, nu1,
+				ray_r_theta_intersects_ground, scattering_order - 1);
+			float3 ground_normal = normalize(zenith_direction * r + omega_i * distance_to_ground);
+			float3 ground_irradiance = getIrradiance( 
+				atmosphere.bottom_radius,
+				dot(ground_normal, omega_s));
+			incident_radiance += transmittance_to_ground *
+				ground_albedo * (1.0 / (PI )) * ground_irradiance;
+
+			float	nu2 = dot(omega, omega_i);
+			float	rayleigh_density = getProfileDensity(
+				atmosphere.rayleigh_density, r - atmosphere.bottom_radius);
+			float mie_density = getProfileDensity(
+				atmosphere.mie_density, r - atmosphere.bottom_radius);
+			rayleigh_mie += incident_radiance * (
+				atmosphere.rayleigh_scattering * rayleigh_density *
+				rayleighPhaseFunction(nu2) +
+				atmosphere.mie_scattering * mie_density *
+				miePhaseFunction(atmosphere.mie_phase_function_g, nu2)) * domega_i;
+		}
+	}
+	return rayleigh_mie;
+}
+
+float3 calculateScatteringDensityTexture(
+	AtmosphereParameters atmosphere,
+	float3 frag_coord, int scattering_order) {
+	float	r;
+	float	mu;
+	float	mu_s;
+	float	nu;
+	bool	ray_r_mu_intersects_ground;
+	getRMuMuSNuFromScatteringTextureCoord(atmosphere, frag_coord,
+		r, mu, mu_s, nu, ray_r_mu_intersects_ground);
+	return calculateScatteringDensity(atmosphere, r, mu, mu_s, nu,
+		scattering_order);
+}
+
+
+[numthreads(1, 1, 1)]
+void precomputeScatteringDensity(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
+{
+	float3 uvw = float3(globalIdx) + 0.5;
+	scattering_densityTex_o[globalIdx] = float4(calculateScatteringDensityTexture(parameters, uvw, scattering_order), 1.0f);
+}
+
+// multiple scattering =====================================================================================================
+float3 calculateMultipleScattering(
+	AtmosphereParameters atmosphere,
+	float r, float mu, float mu_s, float nu,
+	bool ray_r_mu_intersects_ground) {
+	const int SAMPLE_COUNT = 50;
+	float dx =	distanceToNearestAtmosphereBoundary(
+			atmosphere, r, mu, ray_r_mu_intersects_ground) / float(SAMPLE_COUNT);
+	float3 rayleigh_mie_sum = 0.0 ;
+	for (int i = 0; i <= SAMPLE_COUNT; ++i) {
+		float d_i = float(i) * dx;
+		float r_i = clampRadius(atmosphere, sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r));
+		float	mu_i = clampCosine((r * mu + d_i) / r_i);
+		float	mu_s_i = clampCosine((r * mu_s + d_i * nu) / r_i);
+		float3 rayleigh_mie_i =
+			getScattering(
+				atmosphere, delta_scattering_density_texture, r_i, mu_i, mu_s_i, nu,
+				ray_r_mu_intersects_ground) *
+			getTransmittance(
+				atmosphere, transmittance_texture, r, mu, d_i,
+				ray_r_mu_intersects_ground) * dx;
+		float weight_i = (i == 0 || i == SAMPLE_COUNT) ? 0.5 : 1.0;
+		rayleigh_mie_sum += rayleigh_mie_i * weight_i;
+	}
+	return rayleigh_mie_sum;
+}
+
+
+float3 calculateMultipleScatteringTexture(
+	AtmosphereParameters atmosphere,
+	float3 frag_coord, float nu) {
+	float	r;
+	float	mu;
+	float	mu_s;
+	bool	ray_r_mu_intersects_ground;
+	getRMuMuSNuFromScatteringTextureCoord(atmosphere, frag_coord,
+		r, mu, mu_s, nu, ray_r_mu_intersects_ground);
+	return calculateMultipleScattering(atmosphere,  r, mu, mu_s, nu,
+		ray_r_mu_intersects_ground);
+}
+
+[numthreads(1, 1, 1)]
+void precomputeMultupleScattering(uint3 globalIdx: SV_DispatchThreadID, uint3 localIdx : SV_GroupThreadID, uint3 groupIdx : SV_GroupID)
+{
+	float3 uvw = float3(globalIdx)+0.5;
+	float nu = 0;
+	float3 delta_multiple_scattering = calculateMultipleScatteringTexture( parameters,  uvw, nu);
+	multiple_scatteringTex_o[globalIdx] = float4(delta_multiple_scattering,1);
+	scatteringTex_o[globalIdx] += float4(delta_multiple_scattering / rayleighPhaseFunction(nu), 1);
+}
+
+
+// final pass =============================================================================================================
+cbuffer AtmosphericScatteringFinal
+{
+	float3 camera;
+	float earth_radius;
+
+	float3 sun_dir;
+	float sun_cos;
+
+	matrix invViewProj;
+
+	float exposure;
+	float sun_tan;
+};
+
+const static float3 earth_center = 0;
+
+
+
 
 float3 getSunAndSkyIrradiance(float3 pt, float3 normal, out float3 sky_irradiance)
 {
 	float r = length(pt);
-	float mu_s = dot(pt, sun_dir);
+	float mu_s = dot(pt, sun_dir) / r;
 	sky_irradiance = getIrradiance(r, mu_s) * (1.0f + dot(normal, pt) / r) * 0.5f;
 	return 
 		parameters.solar_irradiance * 
-		getTransmittanceToSun(parameters, transmittanceTex, r, mu_s) *
+		getTransmittanceToSun(parameters, transmittance_texture, r, mu_s) *
 		max(dot(normal, sun_dir), 0.0f);
 }
 
@@ -691,11 +845,6 @@ float getSkyVisibility(float3 pt)
 	return 1.0f;
 }
 
-bool rayIntersectsGround(AtmosphereParameters params,
-	float r, float mu) {
-	return(mu < 0.0 && r * r * (mu * mu - 1.0) +
-		params.bottom_radius * params.bottom_radius >= 0.0 );
-}
 
 float3 getExtrapolatedSingleMieScattering(
 	AtmosphereParameters params, float4 scattering) {
@@ -743,6 +892,7 @@ float3 getSkyRadiance(
 	AtmosphereParameters params,
 	float3 camera, float3 view_ray, float shadow_length,
 	float3 sun_direction, out float3 transmittance) {
+	float3 result_radiance = 0;
 	float r = length(camera);
 	float rmu = dot(camera, view_ray);
 	float distance_to_top_atmosphere_boundary = -rmu -
@@ -752,42 +902,46 @@ float3 getSkyRadiance(
 		r = params.top_radius;
 		rmu += distance_to_top_atmosphere_boundary;
 	}
-	else if (r > params.top_radius) {
+
+	if (r > params.top_radius) {
 		transmittance = (1.0f);
-		return (0.0f);
+		result_radiance = 0;
 	}
+	else
+	{
+		float	mu = rmu / r;
+		float	mu_s = dot(camera, sun_direction) / r;
+		float	nu = dot(view_ray, sun_direction);
+		bool ray_r_mu_intersects_ground = rayIntersectsGround(params, r, mu);
 
-	float	mu = rmu / r;
-	float	mu_s = dot(camera, sun_direction) / r;
-	float	nu = dot(view_ray, sun_direction);
-	bool ray_r_mu_intersects_ground = rayIntersectsGround(params, r, mu);
-
-	transmittance = ray_r_mu_intersects_ground ? (0.0) :
-		getTransmittanceToAtmosphereTop(params, transmittanceTex, r, mu);
-	float3	single_mie_scattering;
-	float3	scattering;
-	if (shadow_length == 0.0f) {
-		scattering = getCombinedScattering(
-			params, scatteringTex, single_mie_scatteringTex,
-			r, mu, mu_s, nu, ray_r_mu_intersects_ground, single_mie_scattering);
+		transmittance = ray_r_mu_intersects_ground ? (0.0) :
+			getTransmittanceToAtmosphereTop(params, transmittance_texture, r, mu);
+		float3	single_mie_scattering;
+		float3	scattering;
+		if (shadow_length == 0.0f) {
+			scattering = getCombinedScattering(
+				params, scattering_texture, single_mie_scattering_texture,
+				r, mu, mu_s, nu, ray_r_mu_intersects_ground, single_mie_scattering);
+		}
+		else {
+			float	d = shadow_length;
+			float	r_p = clampRadius(params, sqrt(d * d + 2.0 * r * mu * d + r * r));
+			float	mu_p = (r * mu + d) / r_p;
+			float	mu_s_p = (r * mu_s + d * nu) / r_p;
+			scattering = getCombinedScattering(
+				params, scattering_texture, single_mie_scattering_texture,
+				r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+				single_mie_scattering);
+			float3 shadow_transmittance =
+				getTransmittance(params, transmittance_texture,
+					r, mu, shadow_length, ray_r_mu_intersects_ground);
+			scattering = scattering * shadow_transmittance;
+			single_mie_scattering = single_mie_scattering * shadow_transmittance;
+		}
+		result_radiance = scattering * rayleighPhaseFunction(nu)
+			+ single_mie_scattering * miePhaseFunction(params.mie_phase_function_g, nu);
 	}
-	else {
-		float	d = shadow_length;
-		float	r_p = clampRadius(params, sqrt(d * d + 2.0 * r * mu * d + r * r));
-		float	mu_p = (r * mu + d) / r_p;
-		float	mu_s_p = (r * mu_s + d * nu) / r_p;
-		scattering = getCombinedScattering(
-			params, scatteringTex, single_mie_scatteringTex,
-			r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
-			single_mie_scattering);
-		float3 shadow_transmittance =
-			getTransmittance(params, transmittanceTex,
-				r, mu, shadow_length, ray_r_mu_intersects_ground);
-		scattering = scattering * shadow_transmittance;
-		single_mie_scattering = single_mie_scattering * shadow_transmittance;
-	}
-	return scattering * rayleighPhaseFunction(nu)
-		+ single_mie_scattering * miePhaseFunction(params.mie_phase_function_g, nu);
+	return result_radiance;
 }
 
 float3 getSkyRadianceToPoint( float3 camera, float3 pt, float shadow_length, float3 sun_direction, float3 transmittance) {
@@ -806,11 +960,11 @@ float3 getSkyRadianceToPoint( float3 camera, float3 pt, float shadow_length, flo
 	float	nu = dot(view_ray, sun_direction);
 	float	d = length(pt - camera); 
 	bool ray_r_mu_intersects_ground = rayIntersectsGround(parameters, r, mu);
-	transmittance = getTransmittance(parameters, transmittanceTex,
+	transmittance = getTransmittance(parameters, transmittance_texture,
 		r, mu, d, ray_r_mu_intersects_ground);
 	float3	single_mie_scattering;
 	float3	scattering = getCombinedScattering(
-		parameters, scatteringTex, single_mie_scatteringTex,
+		parameters, scattering_texture, single_mie_scattering_texture,
 		r, mu, mu_s, nu, ray_r_mu_intersects_ground,
 		single_mie_scattering);
 
@@ -822,12 +976,12 @@ float3 getSkyRadianceToPoint( float3 camera, float3 pt, float shadow_length, flo
 
 	float3	single_mie_scattering_p;
 	float3	scattering_p = getCombinedScattering(
-		parameters, scatteringTex, single_mie_scatteringTex,
+		parameters, scattering_texture, single_mie_scattering_texture,
 		r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
 		single_mie_scattering_p);
 	float3 shadow_transmittance = transmittance;
 	if (shadow_length > 0.0 ) {
-		shadow_transmittance = getTransmittance(parameters, transmittanceTex,
+		shadow_transmittance = getTransmittance(parameters, transmittance_texture,
 			r, mu, d, ray_r_mu_intersects_ground);
 	}
 	scattering = scattering - shadow_transmittance * scattering_p;
@@ -850,6 +1004,12 @@ float3 getSolarRadiance() {
 
 half4 atmospheric_scattering(QuadInput input): SV_Target
 {
+	float4 pos = float4(input.uv * 2.0f - 1.0f , 1, 1);
+	pos.y = -pos.y;
+	pos = mul(  invViewProj, pos);
+	pos /= pos.w;
+	float3 view_dir = normalize(pos.xyz - camera.xyz);
+
 	float3 p = camera - earth_center;
 	float p_dot_v = dot(p, view_dir);
 	float p_dot_p = dot(p,p);

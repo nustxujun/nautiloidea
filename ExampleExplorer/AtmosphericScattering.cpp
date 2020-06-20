@@ -3,7 +3,7 @@
 #include "ExampleFramework.h"
 #include "Pipeline.h"
 #include "SimpleMath.h" 
-
+#pragma comment(lib,"DirectXTK12.lib")
 // 光学长度纹理size
 constexpr int TRANSMITTANCE_TEXTURE_WIDTH = 256;
 constexpr int TRANSMITTANCE_TEXTURE_HEIGHT = 64;
@@ -24,20 +24,23 @@ static const int IRRADIANCE_TEXTURE_HEIGHT = 16;
 
 using namespace DirectX;
 
-class AtmosphericScatteringExample : public ExampleFramework
+class AtmosphericScatteringExample final: public ExampleFramework
 {
     enum
     {
         TRANSMITTANCE,
         SINGLESCATTERING,
         DIRECT_IRRADIANCE,
+		INDIRECT_IRRADIANCE,
+		SCATTERING_DENSITY,
+		MULTIPLE_SCATTERING,
 
         FINAL,
         NUM
     };
 
 
-    ForwardPipleline pipeline;
+
     Quad mQuad;
     Renderer::ConstantBuffer::Ptr mCommonConsts;
     Renderer::ConstantBuffer::Ptr mFinalConsts;
@@ -48,7 +51,7 @@ class AtmosphericScatteringExample : public ExampleFramework
     ResourceHandle::Ptr mSingleMieScattering;
     ResourceHandle::Ptr mIrradiance;
 
-    size_t mNumScattering = 8;
+    int mNumScattering = 8;
     bool mRecompute = true;
 
     struct DensityProfileLayer
@@ -98,19 +101,103 @@ class AtmosphericScatteringExample : public ExampleFramework
     }mAtmosphereParams;
 
 	ImGuiOverlay::ImGuiObject* mSettings;
-
 public:
+	Pipeline::Ptr init() override
+	{
+		auto pipeline = Pipeline::Ptr(new ForwardPipleline);
+		pipeline->addPostProcessPass("tonemapping.hlsl",Renderer::BACK_BUFFER_FORMAT);
+		pipeline->set("tone", true);
+		return pipeline;
+	}
+
+
     AtmosphericScatteringExample()
     {
 		initResource();
         initAtmosphere();
     }
-    void update(float dtime)
-    {}
-
-    void render()
+    void update(float dtime, DirectX::Keyboard& k, DirectX::Mouse& m)
     {
-        pipeline.postProcess([=](RenderGraph& graph, auto rt, auto ds){
+		static auto lastMS  = m.GetState();
+		auto ks = k.GetState();
+		auto ms = m.GetState();
+		float scale = 10;
+
+		using V = SimpleMath::Vector3;
+		using V2 = SimpleMath::Vector2;
+
+		using M = SimpleMath::Matrix;
+		using Q = SimpleMath::Quaternion;
+		
+		static Q lastRot = Q::Identity;
+		static V2 lastPos = {(float)ms.x, (float)ms.y};
+		static float lastLen = 50000000.0f / 1000.f;
+		lastLen += (ms.scrollWheelValue - lastMS.scrollWheelValue) * scale;
+		//lastLen = std::max(6370000.0f / 1000.f, lastLen);
+		V2 pos = { (float)ms.x, (float)ms.y };
+		V2 d = pos - lastPos;
+		lastPos = pos;
+		V dir = V::Transform(V::UnitZ, lastRot);
+		auto up = V::Transform(V::UnitY, lastRot);
+		if (ms.leftButton)
+		{
+			float pi = 3.14159265358;
+			Q rot = 
+				Q::CreateFromAxisAngle(up,d.x * dtime * 0.1f)
+				*Q::CreateFromAxisAngle(dir.Cross(up), d.y * dtime * 0.1f)
+				;
+
+			lastRot = lastRot * rot;
+		}
+		dir = V::Transform(V::UnitZ, lastRot);
+
+			
+		static V camera = {0,0,-100000};
+		if (ks.W)
+		{
+			camera += dir * 100 * dtime;
+		}
+		else if(ks.S)
+		{
+			camera += -dir * 100 * dtime;
+		}
+
+		else if (ks.A)
+		{
+			camera += -dir.Cross(up) * 100 * dtime;
+		}
+		else if (ks.D)
+		{
+			camera += dir.Cross(up) * 100 * dtime;
+		}
+
+		if (ks.Q)
+		{
+			Q rot = Q::CreateFromAxisAngle(dir, dtime);
+			lastRot = lastRot * rot  ;
+		}
+		else if (ks.E)
+		{
+			Q rot = Q::CreateFromAxisAngle(-dir, dtime);
+			lastRot = lastRot * rot;
+		}
+		//camera *= lastLen;
+		mFinalConsts->setVariable("camera", camera);
+
+		camera += dir * (ms.scrollWheelValue - lastMS.scrollWheelValue) * scale;
+		M v = M::CreateLookAt(camera, camera + dir , V::Transform(V::UnitY, lastRot));
+		auto s = Renderer::getSingleton()->getSize();
+		M p = M::CreatePerspectiveFieldOfView(0.7, float(s[0]) / float(s[1]), std::abs(lastLen) * 0.1f, std::abs(lastLen));
+		M invVP = (v * p);
+		invVP = invVP.Invert();
+		mFinalConsts->setVariable("invViewProj", invVP);
+		
+		lastMS = ms;
+	}
+
+    void render(Pipeline::Ptr pipeline)
+    {
+        pipeline->postprocess([=](RenderGraph& graph, auto rt, auto ds){
             
 			if (mRecompute) {
 				mRecompute = false;
@@ -134,6 +221,14 @@ public:
 					IRRADIANCE_TEXTURE_HEIGHT,
 					DXGI_FORMAT_R32G32B32A32_FLOAT);
 
+				auto delta_multiple_scattering = delta_rayleigh_scattering;
+				auto delta_scattering_density= ResourceHandle::create(
+					Renderer::VT_UNORDEREDACCESS,
+					SCATTERING_TEXTURE_WIDTH,
+					SCATTERING_TEXTURE_HEIGHT,
+					SCATTERING_TEXTURE_DEPTH,
+					DXGI_FORMAT_R32G32B32A32_FLOAT);
+
 				graph.addPass("prec_trans", [this](RenderGraph::Builder& b)mutable
 					{
 						b.access(mTransmittance);
@@ -149,10 +244,12 @@ public:
 				graph.addPass("prec_ss", [=](RenderGraph::Builder& b) {
 					b.access(mScattering);
 					b.access(mSingleMieScattering);
+					b.access(delta_rayleigh_scattering);
+					b.access(delta_mie_scattering);
 					b.read(mTransmittance);
 					return [=](Renderer::CommandList::Ref cmdlist) {
 						auto pso = mPSOs[SINGLESCATTERING];
-						pso->setCSResource("transmittanceTex", mTransmittance->getView()->getShaderResource());
+						pso->setCSResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
 						pso->setCSResource("scatteringTex_o", mScattering->getView()->getUnorderedAccess());
 						pso->setCSResource("single_mie_scatteringTex_o", mSingleMieScattering->getView()->getUnorderedAccess());
 						pso->setCSResource("rayleigh_scatteringTex_o", delta_rayleigh_scattering->getView()->getUnorderedAccess());
@@ -166,12 +263,13 @@ public:
 				});
 
 				graph.addPass("prec_di", [=](RenderGraph::Builder& b) {
-					b.access(mScattering);
-					b.access(mSingleMieScattering);
 					b.read(mTransmittance);
+					b.access(delta_irradiance);
+					b.access(mIrradiance);
+
 					return [=](Renderer::CommandList::Ref cmdlist) {
 						auto pso = mPSOs[DIRECT_IRRADIANCE];
-						pso->setCSResource("transmittanceTex", mTransmittance->getView()->getShaderResource());
+						pso->setCSResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
 						pso->setCSResource("deltaIrradianceTex_o", delta_irradiance->getView()->getUnorderedAccess());
 						pso->setCSResource("irradianceTex_o", mIrradiance->getView()->getUnorderedAccess());
 
@@ -181,20 +279,101 @@ public:
 					};
 				});
 
-				for (auto i = 2; i < mNumScattering; ++i)
+				for (int i = 2; i <= mNumScattering; ++i)
 				{
 
+					graph.addPass("prec_sd", [=](RenderGraph::Builder& b) {
+						b.read(mTransmittance);
+						b.read(delta_rayleigh_scattering);
+						b.read(delta_mie_scattering);
+						b.read(delta_multiple_scattering);
+						b.read(delta_irradiance);
+						b.access(delta_scattering_density);
+						return [=](Renderer::CommandList::Ref cmdlist)
+						{
+							auto pso = mPSOs[SCATTERING_DENSITY];
+							pso->setCSResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
+							pso->setCSResource("delta_single_rayleigh_scattering_texture", delta_rayleigh_scattering->getView()->getShaderResource());
+							pso->setCSResource("delta_single_mie_scattering_texture", delta_mie_scattering->getView()->getShaderResource());
+							pso->setCSResource("delta_multiple_scattering_texture", delta_multiple_scattering->getView()->getShaderResource());
+							pso->setCSResource("irradiance_texture", delta_irradiance->getView()->getShaderResource());
+
+							pso->setCSResource("scattering_densityTex_o", delta_scattering_density->getView()->getUnorderedAccess());
+
+							pso->setCSVariable("scattering_order", &i);
+							pso->setCSConstant("AtomsphereConstants", mCommonConsts);
+							cmdlist->setPipelineState(pso);
+							cmdlist->dispatch(SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH);
+
+						};
+					});
+
+					graph.addPass("prec_idi", [=](RenderGraph::Builder& b) {
+						b.read(delta_rayleigh_scattering);
+						b.read(delta_mie_scattering);
+						b.read(delta_multiple_scattering);
+
+						b.access(delta_irradiance);
+						b.access(mIrradiance);
+						
+
+						return [=](Renderer::CommandList::Ref cmdlist){
+							auto pso = mPSOs[INDIRECT_IRRADIANCE];
+							pso->setCSResource("delta_single_rayleigh_scattering_texture", delta_rayleigh_scattering->getView()->getShaderResource());
+							pso->setCSResource("delta_single_mie_scattering_texture", delta_mie_scattering->getView()->getShaderResource());
+							pso->setCSResource("delta_multiple_scattering_texture", delta_multiple_scattering->getView()->getShaderResource());
+
+							pso->setCSResource("deltaIrradianceTex_o", delta_irradiance->getView()->getUnorderedAccess());
+							pso->setCSResource("irradianceTex_o", mIrradiance->getView()->getUnorderedAccess());
+
+							pso->setCSVariable("scattering_order", &i);
+							pso->setCSConstant("AtomsphereConstants", mCommonConsts);
+
+							cmdlist->setPipelineState(pso);
+							cmdlist->dispatch(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 1);
+						};
+					});
+
+
+
+					graph.addPass("prec_ms", [=](RenderGraph::Builder& b) {
+						b.read(mTransmittance);
+						b.read(delta_scattering_density);
+
+						b.access(mScattering);
+						b.access(delta_multiple_scattering);
+
+						return [=](Renderer::CommandList::Ref cmdlist)
+						{
+							auto pso = mPSOs[MULTIPLE_SCATTERING];
+							pso->setCSResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
+							pso->setCSResource("delta_scattering_density_texture", delta_scattering_density->getView()->getShaderResource());
+
+							pso->setCSResource("scatteringTex_o", mScattering->getView()->getUnorderedAccess());
+							pso->setCSResource("multiple_scatteringTex_o", delta_multiple_scattering->getView()->getUnorderedAccess());
+
+							//pso->setCSVariable("scattering_order", &i);
+							pso->setCSConstant("AtomsphereConstants", mCommonConsts);
+							cmdlist->setPipelineState(pso);
+							cmdlist->dispatch(SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH);
+
+						};
+					});
 				}
 			}
 
 			graph.addPass("atmosphere", [this, rt](RenderGraph::Builder& b) {
 				b.write(rt, RenderGraph::Builder::IT_NONE);
+				b.read(mTransmittance);
+				b.read(mScattering);
+				b.read(mSingleMieScattering);
+				b.read(mIrradiance);
 				return [this, rt](Renderer::CommandList::Ref cmdlist)
 				{
-					mQuad.setResource("transmittanceTex", mTransmittance->getView()->getShaderResource());
-					mQuad.setResource("scatteringTex", mScattering->getView()->getShaderResource());
-					mQuad.setResource("single_mie_scatteringTex", mSingleMieScattering->getView()->getShaderResource());
-					mQuad.setResource("irradianceTex", mIrradiance->getView()->getShaderResource());
+					mQuad.setResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
+					mQuad.setResource("scattering_texture", mScattering->getView()->getShaderResource());
+					mQuad.setResource("single_mie_scattering_texture", mSingleMieScattering->getView()->getShaderResource());
+					mQuad.setResource("irradiance_texture", mIrradiance->getView()->getShaderResource());
 
 					mQuad.setConstants("AtomsphereConstants", mCommonConsts);
 					mQuad.setConstants("AtmosphericScatteringFinal", mFinalConsts);
@@ -203,11 +382,12 @@ public:
 					mQuad.fitToScreen();
 					mQuad.draw(cmdlist);
 				};
-				});
+			});
 			
 			return rt;
         });
-        pipeline.execute();
+
+		pipeline->postprocess("tonemapping.hlsl");
     }
 
     void initAtmosphere()
@@ -218,7 +398,7 @@ public:
 		constexpr double kLambdaB = 440.0;
 
 		constexpr double mie_g_coefficient = 0.8;
-		constexpr bool use_half_precision_ = true;
+		constexpr bool use_half_precision_ = false;
 		constexpr bool use_constant_solar_spectrum_ = false;
 		constexpr bool use_ozone_ = true;
 		constexpr bool use_rayleigh_scattering = true;
@@ -268,14 +448,31 @@ public:
 		const double max_sun_zenith_angle =
 			(use_half_precision_ ? 102.0 : 120.0) / 180.0 * kPi;
 
-		DensityProfileLayer rayleigh_layer = { 0.0, 1.0 * use_rayleigh_scattering,
-			-1.0 / kRayleighScaleHeight * use_rayleigh_scattering,
-			0.0, 0.0 };
-		DensityProfileLayer mie_layer = { 0.0, 1.0 * use_mie_scattering,
-			-1.0 / kMieScaleHeight * use_mie_scattering, 0.0, 0.0 };
+		DensityProfileLayer rayleigh_layer = {
+			0.0, 
+			1.0 * use_rayleigh_scattering,
+			-1.0 / kRayleighScaleHeight * use_rayleigh_scattering * kLengthUnitInMeters,
+			0.0, 
+			0.0 };
+		DensityProfileLayer mie_layer = { 
+			0.0, 
+			1.0 * use_mie_scattering,
+			-1.0 / kMieScaleHeight * use_mie_scattering * kLengthUnitInMeters,
+			0.0, 
+			0.0 };
 		std::vector<DensityProfileLayer> ozone_density;
-		ozone_density.push_back({ 25000.0, 0.0, 0.0, 1.0 / 15000.0, -2.0 / 3.0 });
-		ozone_density.push_back({ 0.0, 0.0, 0.0, -1.0 / 15000.0, 8.0 / 3.0 });
+		ozone_density.push_back({ 
+			25000.0 / kLengthUnitInMeters,
+			0.0, 
+			0.0, 
+			1.0 / 15000.0 * kLengthUnitInMeters,
+			-2.0 / 3.0 });
+		ozone_density.push_back({
+			0.0,
+			0.0,
+			0.0,
+			-1.0 / 15000.0 * kLengthUnitInMeters,
+			8.0 / 3.0 });
 
 
 
@@ -330,23 +527,22 @@ public:
 			return float3{ r,g,b };
 		};
 
-
 		mAtmosphereParams = {
 			{
 				cal_val(solar_irradiance,  1.0),
 				kSunAngularRadius,
 
 				cal_val(rayleigh_scattering,  kLengthUnitInMeters),
-				kBottomRadius,
+				kBottomRadius / kLengthUnitInMeters,
 
 				cal_val(mie_scattering,  kLengthUnitInMeters),
-				kTopRadius,
+				kTopRadius / kLengthUnitInMeters,
 
 				cal_val(mie_extinction,  kLengthUnitInMeters),
 				(float)kMiePhaseFunctionG,
 
 				cal_val(absorption_extinction,kLengthUnitInMeters),
-				max_sun_zenith_angle,
+				std::cos(float(max_sun_zenith_angle)),
 
 				cal_val(ground_albedo, 1.0),
 				0,
@@ -360,9 +556,8 @@ public:
 		mCommonConsts->blit(&mAtmosphereParams, 0, sizeof(mAtmosphereParams));
 
 		{
-			mFinalConsts->setVariable("camera", Vector3{ 0, 100000000.0f ,0 });
-			mFinalConsts->setVariable("earth_radius", float(6360000.0f));
-			mFinalConsts->setVariable("view_dir", Vector3{ 0,-1,0 });
+
+			mFinalConsts->setVariable("earth_radius", float(6360000.0f / kLengthUnitInMeters));
 			mFinalConsts->setVariable("sun_tan", std::tan(float(kSunAngularRadius)));
 			mFinalConsts->setVariable("sun_cos", std::cos(float(kSunAngularRadius)));
 			mFinalConsts->setVariable("exposure", float(10.0f));
@@ -406,13 +601,36 @@ public:
 			mPSOs[DIRECT_IRRADIANCE] = renderer->createComputePipelineState({ cs });
 		}
 
+
+		{
+			auto cs = renderer->compileShaderFromFile(shader, "precomputeIndirectIrradiance", SM_CS);
+			cs->registerStaticSampler("pointSampler", D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+			cs->enable32BitsConstantsByName("MultipleScatteringConsts");
+			mPSOs[INDIRECT_IRRADIANCE] = renderer->createComputePipelineState({ cs });
+		}
+
+		{
+			auto cs = renderer->compileShaderFromFile(shader, "precomputeScatteringDensity", SM_CS);
+			cs->registerStaticSampler("pointSampler", D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+			cs->enable32BitsConstantsByName("MultipleScatteringConsts");
+			mPSOs[SCATTERING_DENSITY] = renderer->createComputePipelineState({ cs });
+		}
+
+		{
+			auto cs = renderer->compileShaderFromFile(shader, "precomputeMultupleScattering", SM_CS);
+			cs->registerStaticSampler("pointSampler", D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+			cs->enable32BitsConstantsByName("MultipleScatteringConsts");
+			mPSOs[MULTIPLE_SCATTERING] = renderer->createComputePipelineState({ cs });
+		}
+
+
 		{
 			auto ps = renderer->compileShaderFromFile(shader, "atmospheric_scattering", SM_PS);
 			mQuad.init(ps, Renderer::FRAME_BUFFER_FORMAT);
 			mFinalConsts = mQuad.getPipelineState()->createConstantBuffer(Renderer::Shader::ST_PIXEL, "AtmosphericScatteringFinal");
-
-
 		}
+
+
 		auto size = renderer->getSize();
 		mTransmittance = ResourceHandle::create(Renderer::VT_UNORDEREDACCESS, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, FORMAT);
 		mScattering = ResourceHandle::create(Renderer::VT_UNORDEREDACCESS, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, FORMAT);

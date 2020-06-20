@@ -3,14 +3,17 @@
 #include <map>
 #include <functional>
 #include <string>
-
+#include "Pipeline.h"
+#include "Keyboard.h"
+#include "Mouse.h"
 class ExampleFramework
 {
 public:
 	using Ptr = std::shared_ptr<ExampleFramework>;
 
-	virtual void update(float dtime) = 0;
-	virtual void render() = 0;
+	virtual Pipeline::Ptr init() = 0;
+	virtual void update(float dtime, DirectX::Keyboard& k, DirectX::Mouse& m) = 0;
+	virtual void render(Pipeline::Ptr) = 0;
 };
 
 class ExampleFrameworkManager

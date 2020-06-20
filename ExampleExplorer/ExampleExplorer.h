@@ -6,6 +6,8 @@
 #include "Pipeline.h"
 #include "Common.h"
 #include "RenderContext.h"
+#include "Keyboard.h"
+#include "Mouse.h"
 
 class ExampleContext final :public RenderContext
 {
@@ -18,15 +20,21 @@ class ExampleExplorer: public Framework
 public:
 	void init();
 	void updateImpl();
+
+private:
+	LRESULT process(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 private:
 	float mDeltaTime = 0;
 	float mTime = 0;
 	ExampleFramework::Ptr mExample ;
+	Pipeline::Ptr mPipeline;
 	ImGuiOverlay::ImGuiWindow* mExamplesWnd;
 	Dispatcher mDispatcher;
 	ExampleContext mContext;
-	Pipeline::Ptr mPipeline;
 
 	std::map<std::string, bool> mExampleSelected;
+
+	DirectX::Keyboard mKeyboard;
+	DirectX::Mouse mMouse;
 };
 

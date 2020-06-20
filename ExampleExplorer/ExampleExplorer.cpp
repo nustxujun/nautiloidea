@@ -29,6 +29,7 @@ void ExampleExplorer::init()
 		if (ImGui::Button("load"))
 		{
 			mExample = ExampleFrameworkManager::getSingleton().product("AtmosphericScatteringExample");
+			mPipeline = mExample->init();
 			//for (auto& s: mExampleSelected)
 			//	if (s.second)
 			//	{
@@ -40,10 +41,20 @@ void ExampleExplorer::init()
 	};
 
 
-	mPipeline = Pipeline::Ptr(new ForwardPipleline());
+	//mPipeline = Pipeline::Ptr(new ForwardPipleline());
 
 	auto size = getSize();
 	resize(size.first, size.second);
+
+	auto p = std::bind(&ExampleExplorer::process, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+
+	setProcessor(p);
+
+	mMouse.SetWindow(getWindow());
+
+	mExample = ExampleFrameworkManager::getSingleton().product("AtmosphericScatteringExample");
+	mPipeline = mExample->init();
+	mExamplesWnd->visible = false;
 
 }
 
@@ -68,16 +79,23 @@ void ExampleExplorer::updateImpl()
 			::SetWindowTextA(Renderer::getSingleton()->getWindow(), ss.str().c_str());
 	}
 
+	auto pipeline = mPipeline;
 	if (mExample)
 	{
-		mExample->update(mDeltaTime);
-		mExample->render();
+		mExample->update(mDeltaTime, mKeyboard, mMouse);
+		mExample->render(pipeline);
 	}
-	else
-	{
-		mPipeline->execute();
-	}
+	
+	pipeline->execute();
+	Renderer::getSingleton()->addFencingTask([pipeline](){
+	});
+}
 
+LRESULT ExampleExplorer::process(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	mMouse.ProcessMessage(message, wParam, lParam);
+	mKeyboard.ProcessMessage(message, wParam, lParam);
+	return DefWindowProcW(hWnd, message, wParam, lParam);
 }
 
 
