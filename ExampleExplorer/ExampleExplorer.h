@@ -29,6 +29,8 @@ private:
 	ExampleFramework::Ptr mExample ;
 	Pipeline::Ptr mPipeline;
 	ImGuiOverlay::ImGuiWindow* mExamplesWnd;
+	ImGuiOverlay::ImGuiObject* mProfileWindow;
+
 	Dispatcher mDispatcher;
 	ExampleContext mContext;
 
