@@ -171,7 +171,7 @@ void StaticMesh::updateConstants(std::function<void(Renderer::PipelineState::Ref
 	updater(mMaterial->getCurrentPipelineState());
 }
 
-void StaticMesh::draw(Renderer::CommandList::Ref cmdlist)
+void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
 	cmdlist->setPipelineState(mMaterial->getCurrentPipelineState());
 	cmdlist->setVertexBuffer(mVertices);

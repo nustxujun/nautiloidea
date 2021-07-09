@@ -30,7 +30,7 @@ private:
 	void updateRes();
 	void updateScene();
 	void updateSelected();
-	void renderScene(Renderer::CommandList::Ref cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask);
+	void renderScene(Renderer::CommandList * cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask);
 private:
 	float mDeltaTime = 0;
 	float mTime = 0;

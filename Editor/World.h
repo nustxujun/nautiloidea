@@ -17,7 +17,7 @@ struct SceneObject: public AutoObject<SceneObject>
 struct RenderObject: SceneObject
 {
 	virtual void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) = 0;
-	virtual void draw(Renderer::CommandList::Ref cmdlist) = 0;
+	virtual void draw(Renderer::CommandList * cmdlist) = 0;
 };
 
 class Node: public AutoObject<Node>

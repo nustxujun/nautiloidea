@@ -29,7 +29,7 @@ class StaticMesh : public RenderObject
 	friend class StaticMeshResource;
 public:
 	void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) override;
-	void draw(Renderer::CommandList::Ref cmdlist) override;
+	void draw(Renderer::CommandList * cmdlist) override;
 
 
 

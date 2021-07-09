@@ -271,7 +271,7 @@ void Editor::updateRes()
 
 }
 
-void Editor::renderScene(Renderer::CommandList::Ref cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask)
+void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask)
 {
 	auto& world = World::getInstance();
 	std::vector<RenderObject*> ros;
