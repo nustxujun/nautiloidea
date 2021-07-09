@@ -9,6 +9,8 @@
 #include "Keyboard.h"
 #include "Mouse.h"
 
+#include "ProfileWindow.h"
+
 class ExampleContext final :public RenderContext
 {
 public:
@@ -29,7 +31,8 @@ private:
 	ExampleFramework::Ptr mExample ;
 	Pipeline::Ptr mPipeline;
 	ImGuiOverlay::ImGuiWindow* mExamplesWnd;
-	ImGuiOverlay::ImGuiObject* mProfileWindow;
+	//ImGuiOverlay::ImGuiObject* mProfileWindow;
+	ProfileWindow mProfileWindow;
 
 	Dispatcher mDispatcher;
 	ExampleContext mContext;

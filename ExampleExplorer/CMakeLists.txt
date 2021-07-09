@@ -1,25 +1,26 @@
 project(ExampleExplorer)
 
+include_directories(${CMAKE_BINARY_DIR}/assimp/include)
+include_directories(../assimp/include)
 include_directories(../engine)
-# add_subdirectory(../engine external/engine)
+include_directories(../plugins)
+include_directories(../RemoteRender)
 
-include_directories(../Examples)
+add_definitions(-DNO_UE4)
 
 AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_SOURCE_DIR} EXAMPLE_SOURCE)
 add_executable(ExampleExplorer ${EXAMPLE_SOURCE} )
 
-set(projects hermitcrab)
+#dependences
+set(projects hermitcrab plugins RemoteRender assimp)
 
 add_dependencies(ExampleExplorer ${projects})
 
 target_link_libraries(ExampleExplorer debug ${projects})
 target_link_libraries(ExampleExplorer optimized ${projects})
 
-
-
+#nuget deps
 configure_file(packages.config packages.config COPYONLY)
+configure_file(deps.props deps.props COPYONLY)
+set_property( TARGET ExampleExplorer APPEND PROPERTY VS_USER_PROPS deps.props )  
 
-set(DEPS_PROPS deps.props)
-configure_file(${DEPS_PROPS} ${DEPS_PROPS} COPYONLY)
-
-set_property( TARGET ExampleExplorer APPEND PROPERTY VS_USER_PROPS ${DEPS_PROPS} )  

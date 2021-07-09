@@ -42,7 +42,7 @@ class AtmosphericScatteringExample final: public ExampleFramework
 
 
 
-    Quad mQuad;
+    Quad::Ptr mQuad;
     Renderer::ConstantBuffer::Ptr mCommonConsts;
     Renderer::ConstantBuffer::Ptr mFinalConsts;
     std::array<Renderer::PipelineState::Ref, NUM> mPSOs;
@@ -119,6 +119,7 @@ public:
 
     AtmosphericScatteringExample()
     {
+		mQuad = Quad::Ptr(new Quad());
 		initResource();
         initAtmosphere();
     }
@@ -208,9 +209,14 @@ public:
 		M p = M::CreatePerspectiveFieldOfView(0.7, float(s[0]) / float(s[1]), std::abs(lastLen) * 0.1f, std::abs(lastLen));
 		M invVP = (v * p);
 		invVP = invVP.Invert();
+
+		lastMS = ms;
+
+		auto& io = ImGui::GetIO();
+		if (io.WantCaptureMouse)
+			return ;
 		mFinalConsts->setVariable("invViewProj", invVP);
 		
-		lastMS = ms;
 	}
 
     void render(Pipeline::Ptr pipeline)
@@ -399,27 +405,27 @@ public:
 
 
 
-        pipeline->postprocess([=](RenderGraph& graph, auto rt, auto ds){
+        pipeline->postprocess([mFinalConsts = mFinalConsts,mCommonConsts = mCommonConsts,mQuad = mQuad,mTransmittance = mTransmittance, mScattering = mScattering, mSingleMieScattering = mSingleMieScattering, mIrradiance = mIrradiance](RenderGraph& graph, auto rt, auto ds){
            
-			graph.addPass("atmosphere", [this, rt](RenderGraph::Builder& b) {
+			graph.addPass("atmosphere", [=](RenderGraph::Builder& b) {
 				b.write(rt, RenderGraph::Builder::IT_NONE);
 				b.read(mTransmittance);
 				b.read(mScattering);
 				b.read(mSingleMieScattering);
 				b.read(mIrradiance);
-				return [this, rt](Renderer::CommandList::Ref cmdlist)
+				return [=](Renderer::CommandList::Ref cmdlist)
 				{
-					mQuad.setResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
-					mQuad.setResource("scattering_texture", mScattering->getView()->getShaderResource());
-					mQuad.setResource("single_mie_scattering_texture", mSingleMieScattering->getView()->getShaderResource());
-					mQuad.setResource("irradiance_texture", mIrradiance->getView()->getShaderResource());
+					mQuad->setResource("transmittance_texture", mTransmittance->getView()->getShaderResource());
+					mQuad->setResource("scattering_texture", mScattering->getView()->getShaderResource());
+					mQuad->setResource("single_mie_scattering_texture", mSingleMieScattering->getView()->getShaderResource());
+					mQuad->setResource("irradiance_texture", mIrradiance->getView()->getShaderResource());
 
-					mQuad.setConstants("AtomsphereConstants", mCommonConsts);
-					mQuad.setConstants("AtmosphericScatteringFinal", mFinalConsts);
+					mQuad->setConstants("AtomsphereConstants", mCommonConsts);
+					mQuad->setConstants("AtmosphericScatteringFinal", mFinalConsts);
 
 					cmdlist->setRenderTarget(rt->getView());
-					mQuad.fitToScreen();
-					mQuad.draw(cmdlist);
+					mQuad->fitToScreen();
+					mQuad->draw(cmdlist);
 				};
 			});
 			
@@ -665,8 +671,8 @@ public:
 
 		{
 			auto ps = renderer->compileShaderFromFile(shader, "atmospheric_scattering", SM_PS);
-			mQuad.init(ps, Renderer::FRAME_BUFFER_FORMAT);
-			mFinalConsts = mQuad.getPipelineState()->createConstantBuffer(Renderer::Shader::ST_PIXEL, "AtmosphericScatteringFinal");
+			mQuad->init(ps, Renderer::FRAME_BUFFER_FORMAT);
+			mFinalConsts = mQuad->getPipelineState()->createConstantBuffer(Renderer::Shader::ST_PIXEL, "AtmosphericScatteringFinal");
 		}
 
 

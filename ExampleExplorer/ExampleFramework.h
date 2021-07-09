@@ -31,8 +31,9 @@ public:
 	template<class T>
 	int registerFactory(const std::string& n)
 	{
+		std::count << n ;
 		mFactories[n] = [](){
-			return ExampleFramework::Ptr(new T);
+			return ExampleFramework::Ptr(new T());
 		};
 		return 1;
 	}

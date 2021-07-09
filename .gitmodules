@@ -1,3 +1,15 @@
 [submodule "engine"]
 	path = engine
 	url = https://github.com/nustxujun/hermitcrab.git
+[submodule "RemoteRender"]
+	path = RemoteRender
+	url = https://github.com/nustxujun/midofactiniaria.git
+[submodule "assimp"]
+	path = assimp
+	url = https://github.com/assimp/assimp.git
+[submodule "DirectXTK12"]
+	path = DirectXTK12
+	url = https://github.com/microsoft/DirectXTK12.git
+[submodule "DirectXMath"]
+	path = DirectXMath
+	url = https://github.com/microsoft/DirectXMath
