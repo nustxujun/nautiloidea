@@ -10,7 +10,7 @@
 #include "World.h"
 
 #include "ProfileWindow.h"
-
+#include <sol/sol.hpp>
 
 
 class Editor: public Framework
@@ -22,6 +22,10 @@ public:
 private:
 	LRESULT process(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+	void initLua();
+	void registerLuaCore(sol::state& state);
+	static void bindCore(sol::this_state s);
 
 	void updateTime();
 	void updateGUI();
@@ -44,5 +48,7 @@ private:
 	{
 		SceneObject::Ptr selected = 0;
 	}mGuiState;
+
+	sol::state mLuaState;
 };
 

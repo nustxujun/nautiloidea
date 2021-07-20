@@ -73,7 +73,12 @@ private:
 };
 
 
-#define IS_RESOURCE() const static bool initialized;
+#define IS_RESOURCE() \
+private: \
+const static bool initialized;\
+public:\
+using Resource::Resource;
+
 #define REGISTER_FACTORY(TYPE, ...) \
 __if_exists(TYPE::initialized) { const bool TYPE::initialized = ResourceSystem::getInstance().registerFactory<TYPE>({__VA_ARGS__}); }\
 __if_not_exists(TYPE::initialized) {static_assert(0 && "need member: initialized in "#TYPE);}
@@ -84,7 +89,6 @@ class UnknownResource : public Resource
 {
 	IS_RESOURCE()
 public:
-	using Resource::Resource;
 	std::string type() override;
 
 };

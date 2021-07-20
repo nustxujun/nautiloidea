@@ -13,3 +13,6 @@
 [submodule "DirectXMath"]
 	path = DirectXMath
 	url = https://github.com/microsoft/DirectXMath
+[submodule "external/sol2"]
+	path = external/sol2
+	url = https://github.com/ThePhD/sol2.git

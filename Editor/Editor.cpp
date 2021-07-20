@@ -8,6 +8,8 @@
 #include "Resources.h"
 #include "World.h"
 
+#include "imgui_lua_binding.hpp"
+
 static void initImGui()
 {
 	ImGuiIO& io = ImGui::GetIO();
@@ -66,12 +68,115 @@ void Editor::init()
 
 	ResourceSystem::getInstance().refresh();
 	World::getInstance().newWorld();
+
+	initLua();
 }
 
 Editor::~Editor()
 {
 	setProcessor(0);
 }
+
+void Editor::initLua()
+{
+	mLuaState.open_libraries(
+		sol::lib::base, 
+		sol::lib::package,
+		sol::lib::debug, 
+		sol::lib::string,
+		sol::lib::table,
+		sol::lib::coroutine,
+		sol::lib::io,
+		sol::lib::math);
+
+	ImGuiLuaBinding::bind(mLuaState);
+	registerLuaCore(mLuaState);
+
+	mLuaState.add_package_loader([](sol::this_state s, std::string path){
+		sol::state_view state(s);
+		auto ret = state.load_file(std::string("resources/scripts/") + path + ".lua");
+		if (ret.valid()) {
+			return ret.get<sol::object>();
+		}
+		else {
+			sol::error err = ret;
+			return sol::make_object(state, err.what());
+		}
+	});
+	mLuaState.set_exception_handler([](lua_State* L,
+		sol::optional<const std::exception&> maybe_exception,
+		sol::string_view description) {
+			// L is the lua state, which you can wrap in a state_view if
+			// necessary maybe_exception will contain exception, if it
+			// exists description will either be the what() of the
+			// exception or a description saying that we hit the
+			// general-case catch(...)
+			std::cout << "An exception occurred in a function, here's "
+				"what it says ";
+			if (maybe_exception) {
+				std::cout << "(straight from the exception): ";
+				const std::exception& ex = *maybe_exception;
+				std::cout << ex.what() << std::endl;
+			}
+			else {
+				std::cout << "(from the description parameter): ";
+				std::cout.write(description.data(),
+					static_cast<std::streamsize>(description.size()));
+				std::cout << std::endl;
+			}
+
+			// you must push 1 element onto the stack to be
+			// transported through as the error object in Lua
+			// note that Lua -- and 99.5% of all Lua users and libraries
+			// -- expects a string so we push a single string (in our
+			// case, the description of the error)
+			return sol::stack::push(L, description);
+		});
+	while(true)
+	{
+		try
+		{
+			mLuaState.safe_script_file("resources/scripts/main.lua");
+			break;
+		}
+		catch (std::exception& e)
+		{
+			std::cout << e.what() << std::endl;
+			auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
+			ret.get<sol::table>()["start"]();
+		}
+	}
+}
+
+void Editor::registerLuaCore(sol::state& state)
+{
+	auto core = state.create_table();
+	state["core"] = core;
+
+	core["get_window_size"] = [=](sol::this_state L){
+		auto size = getSize();
+		return sol::as_returns(std::vector<int>{size.first, size.second});
+	};
+
+	core["input"] = [](){
+		std::string cont;
+		std::getline(std::cin, cont);
+		return cont;
+	};
+
+	core["reload"] = [&](){
+		mLuaState.restart_gc();
+		mLuaState.safe_script_file("resources/scripts/main.lua");
+	};
+}
+
+//void Editor::bindCore(sol::this_state s)
+//{
+//	sol::state_view lua(s);
+//	sol::table module = lua.create_table();
+//	return module;
+//}
+
 
 void Editor::updateTime()
 {
@@ -96,9 +201,20 @@ void Editor::updateTime()
 
 void Editor::updateGUI()
 {
-	updateLeftTabBar();
-	updateRightTabBar();
-	ImGui::ShowDemoWindow();
+	sol::protected_function obj = mLuaState["core"]["ui_update_callback"];
+
+	if (obj.valid())
+	{
+		auto ret = obj();
+		if (!ret.valid())
+		{
+			sol::error err = ret;
+			WARN(err.what());
+		}
+	}
+	//updateLeftTabBar();
+	//updateRightTabBar();
+	//ImGui::ShowDemoWindow();
 }
 
 void Editor::updateScene()

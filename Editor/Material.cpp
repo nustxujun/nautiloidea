@@ -11,12 +11,15 @@ Material::~Material()
 
 }
 
-void Material::refresh(std::vector<Renderer::Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
+void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
 {
 	size_t hash = 0;
+	std::vector<Renderer::Shader::Ptr> shaderobjs;
 	for (auto& s : shaders)
-		Common::hash_combine(hash, s->getHash());
-
+	{
+		shaderobjs.push_back(s->getShaderObject());
+		Common::hash_combine(hash, s->getShaderObject()->getHash());
+	}
 	for (auto& l : layout)
 	{
 		Common::hash_combine(hash, l.SemanticName);
@@ -42,7 +45,7 @@ void Material::refresh(std::vector<Renderer::Shader::Ptr> shaders, const std::ve
 		rs.setPrimitiveType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
 
 	auto renderer = Renderer::getSingleton();
-	auto pso  = renderer->createPipelineState(shaders, rs);
+	auto pso  = renderer->createPipelineState(shaderobjs, rs);
 
 	mPipelineStates[hash] = pso;
 	mCurrent = hash;

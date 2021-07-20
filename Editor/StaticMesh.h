@@ -19,7 +19,7 @@ public:
 	void interact() override;
 	Node::Ptr load();
 
-	using Resource::Resource;
+	std::vector<MaterialResource::Ptr> materials;
 private:
 	SceneObject::Ptr parseMesh(struct aiMesh* aimesh);
 };
