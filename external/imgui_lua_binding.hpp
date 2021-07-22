@@ -60,7 +60,7 @@ private:
 		};
 		module["SetWindowPos"] = +[](sol::table pos, int flag)
 		{
-			ImGui::SetWindowSize({ pos[1],pos[2] }, flag);
+			ImGui::SetWindowPos({ pos[1],pos[2] }, flag);
 		};
 
 

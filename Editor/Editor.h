@@ -26,6 +26,7 @@ private:
 	void initLua();
 	void registerLuaCore(sol::state& state);
 	static void bindCore(sol::this_state s);
+	void executeScript(std::function<void()>&& call);
 
 	void updateTime();
 	void updateGUI();

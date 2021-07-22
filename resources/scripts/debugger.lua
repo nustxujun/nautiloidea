@@ -163,10 +163,10 @@ function hook(event, line)
 end
 
 function start()
-	current_frame = getinfo(1)
-	do_break(current_frame);
+	-- current_frame = getinfo(1)
+	-- do_break(current_frame);
 	debug.sethook(hook, "crl")
 end
 
-
-return {start = start, do_break = do_break}
+start()
+return { do_break = do_break, break_here = do_break}

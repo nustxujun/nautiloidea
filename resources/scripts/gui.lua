@@ -1,5 +1,4 @@
 require("class")
-
 WindowBase = class("WindowBase")
 WindowBase.visible = true
 
@@ -70,9 +69,14 @@ end
 
 function WindowBase:set_size(x, y)
 	self:add_window_command("set_size",function()
-		print ("window size", x,y)
 		imgui.SetWindowSize({x,y}, 1)
 	end)
+end
+
+-- Root -----------------------------------------------------------
+Root = WindowBase()
+function tick()
+	Root:update()
 end
 
 -- Window -------------------------------------------------------
@@ -93,11 +97,50 @@ function Window:end_window()
 	imgui.End()
 end
 
-
-
--- Root -----------------------------------------------------------
-Root = WindowBase()
-function tick()
-	Root:update()
+function Window:update()
+	if (self.visible) then
+		if self:begin_window() then 
+			self:do_window_command()
+			self:update_children()
+		end
+	end
+	self:end_window() -- make end out of the branch of begin
 end
+
+-- TabBar ------------------------------------------------------
+TabBar = class("TabBar", WindowBase)
+function TabBar:ctor(name, flags) 
+	self.super(WindowBase):ctor()
+	self.name = name
+	self.flags = flags or 0
+end
+
+function TabBar:begin_window()
+	return imgui.BeginTabBar(self.name, self.flags)
+end
+
+function TabBar:end_window()
+	imgui.EndTabBar()
+end
+
+-- TabItem ---------------------------------------------------
+TabItem = class("TabItem", WindowBase)
+function TabItem:ctor(name, opened, flags)
+	self.super(WindowBase):ctor()
+	self.name = name
+	self.opened = bool.new()
+	self.opened.value = opened or true
+	self.flags = flags or 0
+end
+
+function TabItem:begin_window()
+	return imgui.BeginTabItem(self.name, self.opened.pointer, self.flags)
+end
+
+function TabItem:end_window()
+	imgui.EndTabItem()
+end
+
+
+-- RETURN --
 return _ENV

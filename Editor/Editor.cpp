@@ -132,20 +132,10 @@ void Editor::initLua()
 			// case, the description of the error)
 			return sol::stack::push(L, description);
 		});
-	while(true)
-	{
-		try
-		{
-			mLuaState.safe_script_file("resources/scripts/main.lua");
-			break;
-		}
-		catch (std::exception& e)
-		{
-			std::cout << e.what() << std::endl;
-			auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
-			ret.get<sol::table>()["start"]();
-		}
-	}
+	executeScript([&]() {
+		mLuaState.restart_gc();
+		mLuaState.safe_script_file("resources/scripts/main.lua");
+	});
 }
 
 void Editor::registerLuaCore(sol::state& state)
@@ -168,6 +158,24 @@ void Editor::registerLuaCore(sol::state& state)
 		mLuaState.restart_gc();
 		mLuaState.safe_script_file("resources/scripts/main.lua");
 	};
+}
+
+void Editor::executeScript(std::function<void()>&& call)
+{
+	while (true)
+	{
+		try
+		{
+			call();
+			break;
+		}
+		catch (std::exception& e)
+		{
+			std::cout << e.what() << std::endl;
+			auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
+			ret.get<sol::table>()["start"]();
+		}
+	}
 }
 
 //void Editor::bindCore(sol::this_state s)
@@ -201,17 +209,24 @@ void Editor::updateTime()
 
 void Editor::updateGUI()
 {
-	sol::protected_function obj = mLuaState["core"]["ui_update_callback"];
-
-	if (obj.valid())
-	{
-		auto ret = obj();
-		if (!ret.valid())
+	executeScript([&]()
 		{
-			sol::error err = ret;
-			WARN(err.what());
+			sol::protected_function obj = mLuaState["core"]["ui_update_callback"];
+			if (obj.valid())
+			{
+				auto ret = obj();
+				if (!ret.valid())
+				{
+					sol::error err = ret;
+					throw std::exception(err.what());
+				}
+			}
+			else
+				throw std::exception("failed to call core.ui_uplate_callback");
 		}
-	}
+	);
+
+
 	//updateLeftTabBar();
 	//updateRightTabBar();
 	//ImGui::ShowDemoWindow();
