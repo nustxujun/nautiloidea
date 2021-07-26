@@ -14,3 +14,6 @@ leftTabBar:add_child(resources)
 leftTabBar:add_child(scene)
 
 core.ui_update_callback = Gui.tick
+
+
+local rs = require("resource_system");
