@@ -1,6 +1,5 @@
 require("class")
 WindowBase = class("WindowBase")
-WindowBase.visible = true
 
 -- WindowBase -------------------------------------------------------
 function WindowBase:ctor()
@@ -20,12 +19,10 @@ function WindowBase:do_window_command()
 end
 
 function WindowBase:update()
-	if (self.visible) then
-		if self:begin_window() then 
-			self:do_window_command()
-			self:update_children()
-			self:end_window()
-		end
+	if self:begin_window() then 
+		self:do_window_command()
+		self:update_children()
+		self:end_window()
 	end
 end
 
@@ -98,11 +95,9 @@ function Window:end_window()
 end
 
 function Window:update()
-	if (self.visible) then
-		if self:begin_window() then 
-			self:do_window_command()
-			self:update_children()
-		end
+	if self:begin_window() then 
+		self:do_window_command()
+		self:update_children()
 	end
 	self:end_window() -- make end out of the branch of begin
 end
@@ -139,6 +134,48 @@ end
 
 function TabItem:end_window()
 	imgui.EndTabItem()
+end
+
+-- InputText ---------------------------------------------------
+
+InputText = class("InputText", WindowBase)
+function InputText:ctor(name, text, flags, callback)
+	self.super(WindowBase):ctor()
+	self.name = name
+	self.text = string_buffer.new()
+	self.text.value = text or ""
+	self.callback = callback
+	self.flags = flags or 0
+end
+
+function InputText:begin_window()
+	return imgui.InputText(self.name, self.text.pointer, self.flags)
+end
+
+-- Text ---------------------------------------------------
+Text = class("Text", WindowBase)
+function Text:ctor(...)
+	self.super(WindowBase):ctor()
+	self.args = {...}
+end
+
+function Text:begin_window()
+	return imgui.Text(table.unpack(self.args))
+end
+
+-- TreeNode ---------------------------------------------------
+TreeNode = class("TreeNode", WindowBase)
+function TreeNode:ctor(name)
+	self.super(WindowBase):ctor()
+	self.name = name
+end
+
+function TreeNode:begin_window()
+	return imgui.TreeNode(self.name)
+end
+
+function TreeNode:end_window()
+	imgui.TreePop()
 end
 
 

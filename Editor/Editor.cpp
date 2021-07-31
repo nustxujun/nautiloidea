@@ -88,7 +88,8 @@ void Editor::initLua()
 		sol::lib::table,
 		sol::lib::coroutine,
 		sol::lib::io,
-		sol::lib::math);
+		sol::lib::math,
+		sol::lib::count);
 
 	ImGuiLuaBinding::bind(mLuaState);
 	LuaFileSystem::bind(mLuaState);

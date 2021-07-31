@@ -30,7 +30,17 @@ private:
 			return de.is_directory();
 		};
 		directory_entry["path"] = [](fs::directory_entry& de){
+			return std::string(de.path().string());
+		};
+		directory_entry["filename"] = [](fs::directory_entry& de) {
 			return std::string(de.path().filename().string());
+		};
+
+		directory_entry["extension"] = [](fs::directory_entry& de) {
+			auto ext = std::string(de.path().extension().string());
+			ext.erase(ext.begin());
+			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+			return ext;
 		};
 
 		module["exists"] = [](std::string path){
