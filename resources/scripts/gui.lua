@@ -6,6 +6,7 @@ function WindowBase:ctor()
 	self.children = {}
 	self.remove_list = {}
 	self.window_command_list = {}
+	self.visible = true
 end
 
 function WindowBase:add_window_command(name, cmd)
@@ -19,6 +20,9 @@ function WindowBase:do_window_command()
 end
 
 function WindowBase:update()
+	if not self.visible then 
+		return 
+	end
 	if self:begin_window() then 
 		self:do_window_command()
 		self:update_children()
@@ -27,15 +31,22 @@ function WindowBase:update()
 end
 
 function WindowBase:update_children()
-	children = self.children
+	local children = self.children
 	for  k,v in pairs(children) do 
 		v:update()
 	end
 
-	for i in ipairs(self.remove_list) do 
-		table.remove(children, i)
+	if next(self.remove_list) ~= nil then 
+		local cld = {}
+		local rmv = self.remove_list
+		for k,v in pairs(self.children) do 
+			if (not rmv[v]) then 
+				cld[#cld + 1] = v
+			end
+		end
+		self.children = cld;
+		self.remove_list = {}
 	end
-	self.remove_list = {}
 end
 
 function WindowBase:begin_window()
@@ -45,16 +56,27 @@ end
 function WindowBase:end_window()
 end
 
+function WindowBase:set_parent(p)
+	self.parent = p
+end
+
 function WindowBase:add_child(child)
 	assert(child ~= nil)
 	self.children[#self.children + 1] = child
+	child:set_parent(self)
 end
 
 function WindowBase:remove_child(child)
-	for k, i in pairs(self.children) do 
-		if (child == i) then 
-			self.remove_list[#self.remove_list + 1] = k
+	for k, v in pairs(self.children) do 
+		if (child == v) then 
+			self.remove_list[v] = true
 		end
+	end
+end
+
+function WindowBase:remove_all_children()
+	for k,v in pairs(self.children) do 
+		self.remove_list[v] = true
 	end
 end
 
@@ -79,7 +101,7 @@ end
 -- Window -------------------------------------------------------
 Window = class("Window", WindowBase)
 function Window:ctor(name, opened, flags)
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.opened = bool.new()
 	self.opened.value = opened or true
@@ -105,7 +127,7 @@ end
 -- TabBar ------------------------------------------------------
 TabBar = class("TabBar", WindowBase)
 function TabBar:ctor(name, flags) 
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.flags = flags or 0
 end
@@ -121,7 +143,7 @@ end
 -- TabItem ---------------------------------------------------
 TabItem = class("TabItem", WindowBase)
 function TabItem:ctor(name, opened, flags)
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.opened = bool.new()
 	self.opened.value = opened or true
@@ -140,7 +162,7 @@ end
 
 InputText = class("InputText", WindowBase)
 function InputText:ctor(name, text, flags, callback)
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.text = string_buffer.new()
 	self.text.value = text or ""
@@ -155,7 +177,7 @@ end
 -- Text ---------------------------------------------------
 Text = class("Text", WindowBase)
 function Text:ctor(...)
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.args = {...}
 end
 
@@ -166,7 +188,7 @@ end
 -- TreeNode ---------------------------------------------------
 TreeNode = class("TreeNode", WindowBase)
 function TreeNode:ctor(name)
-	self.super(WindowBase):ctor()
+	self.super(WindowBase).ctor(self)
 	self.name = name
 end
 
@@ -178,6 +200,77 @@ function TreeNode:end_window()
 	imgui.TreePop()
 end
 
+-- Combo ---------------------------------------------------
+Combo = class("Combo", WindowBase)
+function Combo:ctor(name, list,selected,flags)
+	self.super(WindowBase).ctor(self)
+	self.list = list or {}
+	self.name = name
+	self.selected = selected or 1
+	self.flags = flags or 0
+end
+
+function Combo:begin_window()
+	return imgui.BeginCombo(self.name, self.list[self.selected],self.flags)
+end
+
+function Combo:end_window()
+	imgui.EndCombo()
+end
+
+function Combo:set_selected(index)
+	assert(index > 0 and index <= #self.list)
+	self.selected = index 
+end
+
+-- Selectable ---------------------------------------------------
+Selectable = class("Selectable", WindowBase)
+function Selectable:ctor(name, selected, click_callback, flags)
+	self.super(WindowBase).ctor(self)
+	self.name = name
+	self.selected = selected or false
+	self.click_callback = click_callback 
+	self.flags =  flags or 0
+end
+
+function Selectable:begin_window()
+	local clicked = imgui.Selectable(self.name, self.selected,self.flags)
+	if (clicked and self.click_callback) then
+		self.click_callback(self)
+	end
+	return clicked
+end
+
+function Selectable:set_selected(val)
+	self.selected = val
+end
+
+-- Popup ---------------------------------------------------
+Popup = class("Popup", WindowBase)
+Popup.NORMAL = 0
+Popup.POPUP = 1
+function Popup:ctor(name, flags)
+	self.super(WindowBase).ctor(self)
+	self.name = name
+	self.flags = flags or 0
+	self.state = Popup.NORMAL
+end
+
+function Popup:begin_window()
+	if self.state == Popup.POPUP then 
+		imgui.OpenPopup(self.name, self.flags)
+		self.state = Popup.NORMAL
+	end
+	return imgui.BeginPopup(self.name, self.flags)
+end
+
+function Popup:end_window()
+	imgui.EndPopup()
+end
+
+function Popup:pop()
+	self.state = Popup.POPUP
+end
 
 -- RETURN --
 return _ENV

@@ -12,18 +12,19 @@
 #include "ProfileWindow.h"
 #include <sol/sol.hpp>
 
+#include "lrdb/server.hpp"
 
 class Editor: public Framework
 {
 public:
-	void init();
+	void init(bool debug_script);
 	void updateImpl();
 	~Editor();
 private:
 	LRESULT process(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-	void initLua();
+	void initLua(bool debug_script);
 	void registerLuaCore(sol::state& state);
 	static void bindCore(sol::this_state s);
 	void executeScript(std::function<void()>&& call);
@@ -51,5 +52,7 @@ private:
 	}mGuiState;
 
 	sol::state mLuaState;
+
+	std::shared_ptr<lrdb::server> mRemoteDebugServer;
 };
 

@@ -24,7 +24,7 @@ function class(classname, ...)
 			end
 			return nil
 		end
-		function get_super(self, class_type)
+		function get_super( class_type)
 			if (class_type == nil) then
 				return super_list[1]
 			end

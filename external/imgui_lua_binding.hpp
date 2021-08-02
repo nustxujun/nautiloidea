@@ -72,9 +72,18 @@ private:
 		REGISTER_ORIGIN(Text);
 		REGISTER_ORIGIN(SameLine);
 		REGISTER_ORIGIN(TreePop);
+		REGISTER_ORIGIN(TreePop);
+		REGISTER_ORIGIN(BeginCombo);
+		REGISTER_ORIGIN(EndCombo);
+		REGISTER_ORIGIN(OpenPopup);
+		REGISTER_ORIGIN(BeginPopup);
+		REGISTER_ORIGIN(EndPopup);
 
 
 
+		module["Selectable"] = [](std::string name ,bool selected ,int flags){
+			return ImGui::Selectable(name.c_str(), selected,flags);
+		};
 		module["TreeNode"] = [](std::string name){
 			return ImGui::TreeNode(name.c_str());
 		};

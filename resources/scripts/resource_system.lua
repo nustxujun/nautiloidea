@@ -6,6 +6,7 @@ local search_paths = {"resources"}
 
 local directories = {}
 local resource_factories = {}
+local resource_type_list = {}
 
 local Directory = class("Directory")
 
@@ -15,6 +16,7 @@ function Directory:ctor()
 end
 
 local Resource = class("Resource")
+Resource.type = "Resource"
 
 function Resource:update_file_info()
 end
@@ -65,9 +67,17 @@ function refresh()
 	end
 end
 
-function register_factory(ext, factory)
-	resource_factories[ext] = factory
+function register_resource(ext, class_type)
+	resource_factories[ext] = function (...) return class_type(...)end
+	resource_type_list[class_type.type] = true
 end
 
-return {refresh = refresh, register_factory = register_factory, resource_tree = directories}
+return {	
+	refresh = refresh, 
+	register_resource = register_resource, 
+	resource_tree = directories,
+	get_type_list = function()
+		return resource_type_list
+	end
+}
 

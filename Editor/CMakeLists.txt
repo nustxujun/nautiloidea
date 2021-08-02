@@ -12,6 +12,8 @@ include_directories(../external)
 include_directories(../external/lua)
 link_directories(../external/lua)
 include_directories(../external/sol2/include)
+include_directories(../external/LRDB/include)
+include_directories(../external/LRDB/third_party/picojson)
 
 
 #dependences

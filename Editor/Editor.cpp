@@ -38,7 +38,7 @@ static void initImGui()
 	io.KeyMap[ImGuiKey_Z] = 'Z';
 }
 
-void Editor::init()
+void Editor::init(bool debug_script)
 {
 
 	// search path
@@ -70,7 +70,7 @@ void Editor::init()
 	ResourceSystem::getInstance().refresh();
 	World::getInstance().newWorld();
 
-	initLua();
+	initLua(debug_script);
 }
 
 Editor::~Editor()
@@ -78,7 +78,7 @@ Editor::~Editor()
 	setProcessor(0);
 }
 
-void Editor::initLua()
+void Editor::initLua(bool debug_script)
 {
 	mLuaState.open_libraries(
 		sol::lib::base, 
@@ -90,6 +90,7 @@ void Editor::initLua()
 		sol::lib::io,
 		sol::lib::math,
 		sol::lib::count);
+
 
 	ImGuiLuaBinding::bind(mLuaState);
 	LuaFileSystem::bind(mLuaState);
@@ -108,6 +109,12 @@ void Editor::initLua()
 			return sol::make_object(state, err.what());
 		}
 	});
+
+	if (debug_script)
+	{
+		mRemoteDebugServer = decltype(mRemoteDebugServer)(new lrdb::server(21110));
+		mRemoteDebugServer->reset(mLuaState);
+	}
 
 	executeScript([&]() {
 		mLuaState.restart_gc();
@@ -537,10 +544,17 @@ LRESULT Editor::process(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-int main()
+int main(int argn, char** args)
 {
+	bool debug_script = false;
+	const char debug[] = "-debug_script"; 
+	for (int i = 1; i < argn; ++i)
+	{
+		if (strncmp(debug, args[i], sizeof(debug)) == 0)
+			debug_script = true;
+	}
 	Editor e;
-	e.init();
+	e.init(debug_script);
 	e.update();
 	return 0;
 }

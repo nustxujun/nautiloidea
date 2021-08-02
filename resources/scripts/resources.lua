@@ -1,16 +1,15 @@
 local resource_system = require("resource_system")
 
-function register_factory(cls, ...)
+function register_resource(cls, ...)
 	local exts = {...}
 	for k,v in pairs(exts) do 
-		resource_system.register_factory(v, function (path)
-			return cls(path)
-		end)
+		resource_system.register_resource(v, cls)
 	end
 end
 
 local ScriptResource = class("ScriptResource", resource_system.Resource)
-register_factory(ScriptResource, "lua")
+ScriptResource.type = "Script"
+register_resource(ScriptResource, "lua")
 
 function ScriptResource:ctor(path)
 	self.path = path:path()

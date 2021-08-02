@@ -19,3 +19,6 @@
 [submodule "external/asio"]
 	path = external/asio
 	url = https://github.com/chriskohlhoff/asio.git
+[submodule "external/LRDB"]
+	path = external/LRDB
+	url = https://github.com/satoren/LRDB.git
