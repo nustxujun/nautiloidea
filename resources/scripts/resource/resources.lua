@@ -1,4 +1,4 @@
-local resource_system = require("resource_system")
+local resource_system = require("resource/resource_system")
 local Resource = resource_system.Resource
 
 function register_resource(cls, ...)

@@ -89,12 +89,18 @@ private:
 		REGISTER_ORIGIN(EndChild);
 		REGISTER_ORIGIN(BeginMenuBar);
 		REGISTER_ORIGIN(EndMenuBar);
+		REGISTER_ORIGIN(PopStyleVar);
+		
+
 
 		REGISTER_ORIGIN(Columns);
 		REGISTER_ORIGIN(SameLine);
 		REGISTER_ORIGIN(NewLine);
 		REGISTER_ORIGIN(Spacing);
+		
+		module["MenuItem"] = (bool(*)(const char* , const char* , bool , bool ))&ImGui::MenuItem;
 
+		module["PushStyleVar"] = sol::overload((void(*)(ImGuiStyleVar, float))&ImGui::PushStyleVar, [](int s, float w, float h){ImGui::PushStyleVar(s,{w,h});});
 
 		module["OpenPopup"] = [](std::string id, int flags) {
 			return ImGui::OpenPopup(id.c_str(), flags);

@@ -7,6 +7,7 @@ function WindowBase:ctor()
 	self.remove_list = {}
 	self.window_command_list = {}
 	self.visible = true
+	self.style_var_list = {}
 end
 
 function WindowBase:add_window_command(name, cmd)
@@ -19,11 +20,44 @@ function WindowBase:do_window_command()
 	end
 end
 
+function WindowBase:push_style_var()
+	for k,v in pairs(self.style_var_list) do 
+		imgui.PushStyleVar(table.unpack(v))
+	end
+end
+
+function WindowBase:pop_style_var()
+	local count = #self.style_var_list
+	if count ~= 0 then 
+		imgui.PopStyleVar(#self.style_var_list)
+	end
+end
+
+function WindowBase:add_style_var(id, ...)
+	for k,v in pairs(self.style_var_list) do 
+		if (v[0] == id) then 
+			self.style_var_list[k] = {id, ...}
+			return
+		end
+	end
+	self.style_var_list[#self.style_var_list + 1] = {id, ...}
+end
+
+function WindowBase:remove_style_var(id)
+	for k,v in pairs(self.style_var_list) do 
+		if (v[0] == id) then 
+			table.remove(self.style_var_list, k)
+		end
+	end
+end
+
 function WindowBase:update()
 	if not self.visible then 
 		return 
 	end
+	self:push_style_var()
 	if self:begin_window() then 
+		self:pop_style_var()
 		self:do_window_command()
 		self:update_children()
 		self:end_window()
@@ -103,12 +137,29 @@ function Operator:update()
 		return 
 	end
 	self:begin_window()
+end 
+
+-- Widget -------------------------------------------------------
+LightWidget = class("LightWidget", WindowBase)
+function LightWidget:ctor(...)
+	WindowBase.ctor(self, ...)
 end
+
+function LightWidget:update()
+	if not self.visible then 
+		return 
+	end
+	self:push_style_var()
+	self:begin_window()
+	self:pop_style_var()
+end
+
+
 
 -- Root -----------------------------------------------------------
 Root = WindowBase()
 function tick()
-	imgui.ShowDemoWindow()
+	-- imgui.ShowDemoWindow()
 	Root:update()
 end
 
@@ -134,11 +185,20 @@ function Window:dock_space()
 	imgui.DockSpace(self.name, 0,0, 0)
 end
 
+function Window:add_dock_node()
+	if (self.flags &  0x200000) ~= 0 then 
+		self:dock_space()
+	end
+end
+
 function Window:update()
+	if not self.visible or not self.opened.value then 
+		return 
+	end
+	self:push_style_var()
 	if self:begin_window() then 
-		if (self.flags &  0x200000) ~= 0 then 
-			self:dock_space()
-		end
+		self:pop_style_var()
+		self:add_dock_node()
 		self:do_window_command()
 		self:update_children()
 	end
@@ -181,9 +241,9 @@ end
 
 -- InputText ---------------------------------------------------
 
-InputText = class("InputText", WindowBase)
+InputText = class("InputText", LightWidget)
 function InputText:ctor(name, text, flags, callback)
-	self.super(WindowBase).ctor(self)
+	self.super(LightWidget).ctor(self)
 	self.name = name
 	self.text = string_buffer.new()
 	self.text.value = text or ""
@@ -196,9 +256,9 @@ function InputText:begin_window()
 end
 
 -- Text ---------------------------------------------------
-Text = class("Text", WindowBase)
+Text = class("Text", LightWidget)
 function Text:ctor(...)
-	self.super(WindowBase).ctor(self)
+	self.super(LightWidget).ctor(self)
 	self.args = {...}
 end
 
@@ -245,9 +305,9 @@ function Combo:set_selected(index)
 end
 
 -- Selectable ---------------------------------------------------
-Selectable = class("Selectable", WindowBase)
+Selectable = class("Selectable", LightWidget)
 function Selectable:ctor(name, selected, click_callback, flags)
-	self.super(WindowBase).ctor(self)
+	self.super(LightWidget).ctor(self)
 	self.name = name
 	self.selected = selected or false
 	self.click_callback = click_callback 
@@ -362,6 +422,29 @@ function ChildWindow:update()
 		self:update_children()
 	end
 	self:end_window() -- make end out of the branch of begin
+end
+
+-- MenuItem ---------------------------------------------------
+MenuItem = class("MenuItem", LightWidget)
+function MenuItem:ctor(name, short_cut, selected, enable, callback)
+	self.super(LightWidget).ctor(self)
+	self.name = name
+	self.short_cut= short_cut or ""
+	self.selected = selected or false
+	self.enable = enable == nil and true or enable
+	self.callback = callback or function () end
+end
+
+function MenuItem:begin_window()
+	local ret = imgui.MenuItem(self.name, self.short_cut, self.selected, self.enable)
+	if ret then 
+		self.callback(self)
+	end
+	return ret 
+end
+
+function MenuItem:set_callback(cb)
+	self.callback = cb or function() end
 end
 
 -- Columns ---------------------------------------------------
