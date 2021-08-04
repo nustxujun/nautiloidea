@@ -18,16 +18,20 @@ end
 local Resource = class("Resource")
 Resource.type = "Resource"
 
+function Resource:ctor(path)
+	self.path = path:path()
+	self.filename= path:filename()
+	self.ext = path:extension()
+end
+
 function Resource:update_file_info()
 end
 
-local UnKnownResource = class("UnknownResource", Reosurce)
+local UnKnownResource = class("UnknownResource", Resource)
 UnKnownResource.type = "Unknown File"
 
 function UnKnownResource:ctor(path)
-	self.path = path:path()
-	self.name = path:filename();
-	self.ext = path:extension()
+	self.super(Resource).ctor(self,path)
 end
 
 function create_resource(path)
@@ -73,6 +77,7 @@ function register_resource(ext, class_type)
 end
 
 return {	
+	Resource = Resource,
 	refresh = refresh, 
 	register_resource = register_resource, 
 	resource_tree = directories,

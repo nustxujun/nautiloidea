@@ -3,6 +3,8 @@
 #include <sol/sol.hpp>
 #include "imgui/imgui.h"
 
+#define IMGUI_DOCKING 1
+
 
 class ImGuiLuaBinding
 {
@@ -61,7 +63,9 @@ private:
 
 	static void registerFunctions(sol::table& module)
 	{
-
+		module["ShowDemoWindow"] = []() {
+			ImGui::ShowDemoWindow();
+		};
 #define REGISTER_ORIGIN(x) module[#x] = &ImGui::x;
 		REGISTER_ORIGIN(Begin);
 		REGISTER_ORIGIN(End);
@@ -75,11 +79,30 @@ private:
 		REGISTER_ORIGIN(TreePop);
 		REGISTER_ORIGIN(BeginCombo);
 		REGISTER_ORIGIN(EndCombo);
-		REGISTER_ORIGIN(OpenPopup);
+		//REGISTER_ORIGIN(OpenPopup);
 		REGISTER_ORIGIN(BeginPopup);
 		REGISTER_ORIGIN(EndPopup);
+		REGISTER_ORIGIN(BeginMainMenuBar);
+		REGISTER_ORIGIN(EndMainMenuBar);
+		REGISTER_ORIGIN(BeginMenu);
+		REGISTER_ORIGIN(EndMenu);
+		REGISTER_ORIGIN(EndChild);
+		REGISTER_ORIGIN(BeginMenuBar);
+		REGISTER_ORIGIN(EndMenuBar);
+
+		REGISTER_ORIGIN(Columns);
+		REGISTER_ORIGIN(SameLine);
+		REGISTER_ORIGIN(NewLine);
+		REGISTER_ORIGIN(Spacing);
 
 
+		module["OpenPopup"] = [](std::string id, int flags) {
+			return ImGui::OpenPopup(id.c_str(), flags);
+		};
+		module["BeginChild"] = [](std::string name, float w, float h, bool border, int flags)
+		{
+			return ImGui::BeginChild(name.c_str(), { w,h }, border, flags);
+		};
 
 		module["Selectable"] = [](std::string name ,bool selected ,int flags){
 			return ImGui::Selectable(name.c_str(), selected,flags);
@@ -100,6 +123,13 @@ private:
 		module["InputText"] = +[](std::string name, void* str_ptr, int flag){
 			return ImGui::InputText(name.c_str(), (char*)str_ptr, MAX_STRING_SIZE, flag);
 		};
+
+
+#if IMGUI_DOCKING
+		module["DockSpace"] = [](std::string id, float w, float h, int flags) {
+			return ImGui::DockSpace(ImGui::GetID(id.c_str()), { w,h }, flags);
+		};
+#endif
 	}
 
 };

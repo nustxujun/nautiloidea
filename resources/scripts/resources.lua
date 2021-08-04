@@ -1,4 +1,5 @@
 local resource_system = require("resource_system")
+local Resource = resource_system.Resource
 
 function register_resource(cls, ...)
 	local exts = {...}
@@ -7,13 +8,24 @@ function register_resource(cls, ...)
 	end
 end
 
-local ScriptResource = class("ScriptResource", resource_system.Resource)
+
+-- ScriptResource -------------------------------------------
+
+local ScriptResource = class("ScriptResource", Resource)
 ScriptResource.type = "Script"
 register_resource(ScriptResource, "lua")
 
 function ScriptResource:ctor(path)
-	self.path = path:path()
-	self.filename= path:filename()
-	self.ext = path:extension()
-	print ("create ", self.filename)
+	self.super().ctor(self,path)
 end
+
+
+-- ModelResource -------------------------------------------
+local ModelResource = class("ModelResource", Resource)
+ModelResource.type = "Model"
+register_resource(ModelResource, "fbx", "obj")
+
+function ModelResource:ctor(path)
+	self.super(Resource).ctor(self,path)
+end
+

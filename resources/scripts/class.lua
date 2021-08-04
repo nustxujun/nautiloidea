@@ -24,11 +24,14 @@ function class(classname, ...)
 			end
 			return nil
 		end
-		function get_super( class_type)
+		function get_super( self, class_type)
 			if (class_type == nil) then
 				return super_list[1]
+			elseif (type(clas_type) == "string") then
+				return super_table[class_type]		
+			else
+				return super_table[class_type.__class_type]		
 			end
-			return super_table[class_type.__class_type]		
 		end
 		setmetatable(super, {__index = get, __call = get_super})
 		return super
@@ -46,7 +49,7 @@ function class(classname, ...)
 		__class_type = classname,
 		super = super,
 		new = new,
-		ctor = function(...) end
+		ctor = super() == nil and function(...) end or super().ctor
 	}
 	function get(self, key)
 		local val = rawget(self, key)

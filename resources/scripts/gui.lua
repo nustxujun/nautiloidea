@@ -62,6 +62,7 @@ end
 
 function WindowBase:add_child(child)
 	assert(child ~= nil)
+	assert(child.parent == nil)
 	self.children[#self.children + 1] = child
 	child:set_parent(self)
 end
@@ -92,9 +93,22 @@ function WindowBase:set_size(x, y)
 	end)
 end
 
+-- Operator -------------------------------------------------------
+Operator = class("Operator", WindowBase)
+function Operator:ctor()
+	self.visible = true
+end
+function Operator:update()
+	if not self.visible then 
+		return 
+	end
+	self:begin_window()
+end
+
 -- Root -----------------------------------------------------------
 Root = WindowBase()
 function tick()
+	imgui.ShowDemoWindow()
 	Root:update()
 end
 
@@ -104,7 +118,7 @@ function Window:ctor(name, opened, flags)
 	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.opened = bool.new()
-	self.opened.value = opened or true
+	self.opened.value = opened == nil and true or opened
 	self.flags = flags or 0
 end
 
@@ -116,8 +130,15 @@ function Window:end_window()
 	imgui.End()
 end
 
+function Window:dock_space()
+	imgui.DockSpace(self.name, 0,0, 0)
+end
+
 function Window:update()
 	if self:begin_window() then 
+		if (self.flags &  0x200000) ~= 0 then 
+			self:dock_space()
+		end
 		self:do_window_command()
 		self:update_children()
 	end
@@ -146,7 +167,7 @@ function TabItem:ctor(name, opened, flags)
 	self.super(WindowBase).ctor(self)
 	self.name = name
 	self.opened = bool.new()
-	self.opened.value = opened or true
+	self.opened.value = opened == nil and true or opened
 	self.flags = flags or 0
 end
 
@@ -270,6 +291,104 @@ end
 
 function Popup:pop()
 	self.state = Popup.POPUP
+end
+
+-- MainMenuBar ---------------------------------------------------
+MainMenuBar = class("MainMenuBar", WindowBase)
+function MainMenuBar:ctor()
+	self.super(WindowBase).ctor(self)
+end
+
+function MainMenuBar:begin_window()
+	return imgui.BeginMainMenuBar()
+end
+
+function MainMenuBar:end_window()
+	imgui.EndMainMenuBar()
+end
+
+-- MenuBar ---------------------------------------------------
+MenuBar = class("MenuBar", WindowBase)
+function MenuBar:ctor()
+	self.super(WindowBase).ctor(self)
+end
+
+function MenuBar:begin_window()
+	return imgui.BeginMenuBar()
+end
+
+function MenuBar:end_window()
+	imgui.EndMenuBar()
+end
+
+-- Menu ---------------------------------------------------
+Menu = class("Menu", WindowBase)
+function Menu:ctor(name, enable)
+	self.super(WindowBase).ctor(self)
+	self.name = name
+	self.enable = enable == nil and true or enable
+end
+
+function Menu:begin_window()
+	return imgui.BeginMenu(self.name, self.enable)
+end
+
+function Menu:end_window()
+	imgui.EndMenu()
+end
+
+-- ChildWindow ---------------------------------------------------
+ChildWindow = class("ChildWindow", WindowBase)
+function ChildWindow:ctor(name, width, height, border, flags)
+	self.super(WindowBase).ctor(self)
+	self.name = name
+	self.width = width
+	self.height = height
+	self.border = border == nil and true or border
+	self.flags = flags or 0
+end
+
+function ChildWindow:begin_window()
+	return imgui.BeginChild(self.name,self.width, self.height, self.border, self.flags)
+end
+
+function ChildWindow:end_window()
+	imgui.EndChild()
+end
+
+function ChildWindow:update()
+	if self:begin_window() then 
+		self:do_window_command()
+		self:update_children()
+	end
+	self:end_window() -- make end out of the branch of begin
+end
+
+-- Columns ---------------------------------------------------
+Columns = class("Columns", Operator)
+function Columns:ctor(count, border)
+	self.super(Operator).ctor(self)
+	self.count = count or 1
+	self.border = border == nil and true or border
+	self.id = tostring(self)
+end
+
+function Columns:begin_window()
+	imgui.Columns(self.count, self.id, self.border)
+end
+
+-- NewLine ---------------------------------------------------
+NewLine = class("NewLine", Operator)
+
+function NewLine:begin_window()
+	imgui.NewLine()
+end
+
+-- Spacing ---------------------------------------------------
+Spacing = class("Spacing", Operator)
+
+function Spacing:begin_window()
+	imgui.Spacing()
 end
 
 -- RETURN --
