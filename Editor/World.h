@@ -61,6 +61,7 @@ private:
 class World
 {
 public:
+	~World();
 	static World& getInstance()
 	{
 		static World world;

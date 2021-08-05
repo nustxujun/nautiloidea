@@ -35,6 +35,10 @@ void World::newWorld()
 	mRoot = createNode();
 }
 
+World::~World()
+{
+
+}
 
 
 Node::Ptr World::createNode()

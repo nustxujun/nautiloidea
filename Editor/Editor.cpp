@@ -8,6 +8,7 @@
 #include "Resources.h"
 #include "World.h"
 
+#include "WorldLuaBindings.hpp"
 #include "imgui_lua_binding.hpp"
 #include "filesystem_lua_binding.hpp"
 
@@ -93,8 +94,9 @@ void Editor::initLua(bool debug_script)
 
 
 	ImGuiLuaBinding::bind(mLuaState);
-	LuaFileSystem::bind(mLuaState);
-
+	WorldLuaBinding::bind(mLuaState);
+	LuaFileSystem::bind(mLuaState); 
+	  
 
 	registerLuaCore(mLuaState);
 
