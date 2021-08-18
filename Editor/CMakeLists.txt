@@ -21,9 +21,10 @@ set(projects hermitcrab plugins assimp DirectXTK12)
 set(externals lua)
 
 # scan sources
-AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_SOURCE_DIR} EXAMPLE_SOURCE)
+file(GLOB EDITOR_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_SOURCE_DIR} EDITOR_SOURCE)
 # make execution
-add_executable(Editor ${EXAMPLE_SOURCE} )
+add_executable(Editor ${EDITOR_SOURCE} ${EDITOR_HEADERS})
 
 # add library
 add_dependencies(Editor ${projects})

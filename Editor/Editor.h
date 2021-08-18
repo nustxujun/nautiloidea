@@ -26,7 +26,7 @@ private:
 
 	void initLua(bool debug_script);
 	void registerLuaCore(sol::state& state);
-	static void bindCore(sol::this_state s);
+	void bindPipelineOperations(sol::state& state);
 	void executeScript(std::function<void()>&& call);
 
 	void updateTime();

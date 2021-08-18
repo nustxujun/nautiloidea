@@ -8,7 +8,7 @@
 #include "Resources.h"
 #include "World.h"
 
-#include "WorldLuaBindings.hpp"
+#include "EditorLuaBindings.h"
 #include "imgui_lua_binding.hpp"
 #include "filesystem_lua_binding.hpp"
 
@@ -37,6 +37,7 @@ static void initImGui()
 	io.KeyMap[ImGuiKey_X] = 'X';
 	io.KeyMap[ImGuiKey_Y] = 'Y';
 	io.KeyMap[ImGuiKey_Z] = 'Z';
+	ImGuiPass::getInstance();
 }
 
 void Editor::init(bool debug_script)
@@ -65,7 +66,7 @@ void Editor::init(bool debug_script)
 	auto pp = new ForwardPipleline;
 	mPipeline = Pipeline::Ptr(pp);
 	pp->setUICallback(std::bind(&Editor::updateGUI, this));
-
+	pp->init();
 	initImGui();
 
 	ResourceSystem::getInstance().refresh();
@@ -94,7 +95,11 @@ void Editor::initLua(bool debug_script)
 
 
 	ImGuiLuaBinding::bind(mLuaState);
-	WorldLuaBinding::bind(mLuaState);
+	EditorLuaBinding::bindWorld(mLuaState);
+	EditorLuaBinding::bindRender(mLuaState);
+	bindPipelineOperations(mLuaState);
+
+
 	LuaFileSystem::bind(mLuaState); 
 	  
 
@@ -164,12 +169,25 @@ void Editor::executeScript(std::function<void()>&& call)
 	}
 }
 
-//void Editor::bindCore(sol::this_state s)
-//{
-//	sol::state_view lua(s);
-//	sol::table module = lua.create_table();
-//	return module;
-//}
+void Editor::bindPipelineOperations(sol::state& state)
+{
+	auto opt = state["render"]["pipeline_operation"];
+	opt["render_scene"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass{
+		return PipelineOperation::renderScene(
+		{}, 
+		std::bind(&Editor::renderScene, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+		rt,ds);
+	};
+
+	//opt["render_ui"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass {
+	//	return PipelineOperation::renderUI(
+	//		{},
+	//		std::bind(&Editor::renderScene, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
+	//		rt, ds);
+	//};
+
+}
+
 
 
 void Editor::updateTime()
@@ -211,7 +229,7 @@ void Editor::updateGUI()
 				throw std::exception("failed to call core.ui_uplate_callback");
 		}
 	);
-
+	ImGuiPass::getInstance()->ready();
 
 	//updateLeftTabBar();
 	//updateRightTabBar();
@@ -409,6 +427,9 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 void Editor::updateImpl()
 {
 	updateTime();
+	Dispatcher::getSharedContext().dispatch([&,update_gui = &Editor::updateGUI](){
+		(this->*update_gui)();
+	});
 	mPipeline->execute({});
 }
 
