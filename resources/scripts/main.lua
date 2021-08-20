@@ -11,11 +11,12 @@
 
 local Gui = require("gui")
 require("editor/ui")
-
+local Pipeline = require("pipeline")
 
 local rt, ds;
 
-local pipeline = render.Pipeline.new()
+local pipeline = Pipeline.create_pipeline("main")
+Pipeline.set_ordered_pipelines({pipeline})
 
 core.window_resize_callback = function ()
     local w,h = core.get_window_size()
@@ -31,6 +32,6 @@ end
 core.window_resize_callback()
 
 core.update_callback = function ()
-    pipeline:execute()
+    Pipeline.execute()
     Gui.tick()
 end
