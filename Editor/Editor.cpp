@@ -65,7 +65,7 @@ void Editor::init(bool debug_script)
 
 	auto pp = new ForwardPipleline;
 	mPipeline = Pipeline::Ptr(pp);
-	pp->setUICallback(std::bind(&Editor::updateGUI, this));
+	//pp->setUICallback(std::bind(&Editor::updateGUI, this));
 	pp->init();
 	initImGui();
 
@@ -149,6 +149,15 @@ void Editor::registerLuaCore(sol::state& state)
 		mLuaState.restart_gc();
 		mLuaState.safe_script_file("resources/scripts/main.lua");
 	};
+
+	Renderer::getSingleton()->registerRenderEvent(Renderer::RE_BEFORE_RESIZE, [=](auto e) {
+		executeScript([&]() {
+			auto obj = mLuaState["core"]["window_resize_callback"];
+			if (obj.valid())
+				callScript(obj);
+		});
+	});
+
 }
 
 void Editor::executeScript(std::function<void()>&& call)
@@ -169,6 +178,23 @@ void Editor::executeScript(std::function<void()>&& call)
 	}
 }
 
+void Editor::callScript(sol::object func)
+{
+	sol::protected_function obj = func;
+	if (obj.valid())
+	{
+		auto ret = obj();
+		if (!ret.valid())
+		{
+			sol::error err = ret;
+			throw std::exception(err.what());
+		}
+	}
+	else
+		throw std::exception("failed to call script function");
+}
+
+
 void Editor::bindPipelineOperations(sol::state& state)
 {
 	auto opt = state["render"]["pipeline_operation"];
@@ -179,12 +205,9 @@ void Editor::bindPipelineOperations(sol::state& state)
 		rt,ds);
 	};
 
-	//opt["render_ui"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass {
-	//	return PipelineOperation::renderUI(
-	//		{},
-	//		std::bind(&Editor::renderScene, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
-	//		rt, ds);
-	//};
+	opt["render_ui"] = & PipelineOperation::renderUI;
+
+	opt["present"] = &PipelineOperation::present;
 
 }
 
@@ -213,23 +236,7 @@ void Editor::updateTime()
 
 void Editor::updateGUI()
 {
-	executeScript([&]()
-		{
-			sol::protected_function obj = mLuaState["core"]["ui_update_callback"];
-			if (obj.valid())
-			{
-				auto ret = obj();
-				if (!ret.valid())
-				{
-					sol::error err = ret;
-					throw std::exception(err.what());
-				}
-			}
-			else
-				throw std::exception("failed to call core.ui_uplate_callback");
-		}
-	);
-	ImGuiPass::getInstance()->ready();
+
 
 	//updateLeftTabBar();
 	//updateRightTabBar();
@@ -427,10 +434,13 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 void Editor::updateImpl()
 {
 	updateTime();
-	Dispatcher::getSharedContext().dispatch([&,update_gui = &Editor::updateGUI](){
-		(this->*update_gui)();
-	});
-	mPipeline->execute({});
+	executeScript([&]()
+		{
+			callScript(mLuaState["core"]["update_callback"]);
+		}
+	);
+	ImGuiPass::getInstance()->ready();
+	//mPipeline->execute({});
 }
 
 static bool ImGui_ImplWin32_UpdateMouseCursor()

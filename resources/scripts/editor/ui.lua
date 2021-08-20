@@ -1,6 +1,5 @@
 
 local Gui = require("gui")
-core.ui_update_callback = Gui.tick
 
 local Root = Gui.Root
 require("dispatcher")

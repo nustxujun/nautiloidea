@@ -28,6 +28,7 @@ private:
 	void registerLuaCore(sol::state& state);
 	void bindPipelineOperations(sol::state& state);
 	void executeScript(std::function<void()>&& call);
+	void callScript(sol::object func);
 
 	void updateTime();
 	void updateGUI();
