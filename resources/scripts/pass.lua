@@ -1,12 +1,24 @@
 require("dispatcher")
+local Globals = require("globals")
 PassResource = class("PassResource")
 
-function PassResource:ctor()
+
+EVENT_RESET = "event_reset"
+
+function PassResource:ctor(event_resize_callback)
 	self.dispatcher = Dispatcher()
+	if event_resize_callback then 
+		local this = self
+		Globals.bind_event_window_resize(self,function()
+			event_resize_callback(this)
+		end)
+		event_resize_callback(self)
+	end
 end
 
 function PassResource:reset(type, width, height, format)
 	self.resource = render.create_resource(type, width, height, format)
+	self.dispatcher:notify(EVENT_RESET)
 end
 
 function PassResource:get_device_resource()
@@ -14,19 +26,20 @@ function PassResource:get_device_resource()
 end
 
 function PassResource:bind_reset_event(pipeline, callback)
-	self.dispatcher:add("reset", pipeline, callback)
+	self.dispatcher:add(EVENT_RESET, pipeline, callback)
 end
 
 function PassResource:unbind_reset_event(callback)
-	self.dispatcher:remove("reset", pipeline, callback)
+	self.dispatcher:remove(EVENT_RESET, pipeline, callback)
 end
 
 
 Pass = class("Pass")
 
 
-function Pass:ctor()
+function Pass:ctor(name)
 	self.resources = {}
+	self.name = name
 end
 
 function Pass:get_render_pass()
@@ -61,7 +74,7 @@ ScenePass = class("ScenePass", Pass)
 
 function ScenePass:get_render_pass()
 	self:check()
-	return render.pipeline_operation.render_scene(self.get_device_resource("rt"),self.get_device_resource('ds'))
+	return render.pipeline_operation.render_scene(self:get_device_resource("rt"),self:get_device_resource('ds'))
 end
 
 function ScenePass:check()
@@ -73,12 +86,12 @@ GUIPass = class("GUIPass", Pass)
 
 function GUIPass:get_render_pass()
 	self:check()
-	return render.pipeline_operation.render_ui(self.get_device_resource("rt"))
+	return render.pipeline_operation.render_ui(self:get_device_resource("rt"))
 end
 
 
 FinalPass = class("FinalPass", Pass)
 
 function FinalPass:get_render_pass()
-	return render.pipeline_operation.present(self.get_device_resource("rt"))
+	return render.pipeline_operation.present(self:get_device_resource("rt"))
 end

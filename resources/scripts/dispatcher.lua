@@ -6,14 +6,15 @@ function Dispatcher:ctor()
     self.events = {}
 end
 
-function Dispatcher:add(event, key, callback)
-    self.events[event] = self.events[event] or {}
-    self.events[event][key] = callback
+function create_events_container()
+    local t = {}
+    setmetatable(t, {__mode = "k"});
+    return t
 end
 
-function Dispatcher:remove(event, key)
-    self.events[event] = self.events[event] or {}
-    self.events[event][key] = nil
+function Dispatcher:add(event, key, callback)
+    self.events[event] = self.events[event] or create_events_container()
+    self.events[event][key] = callback
 end
 
 function Dispatcher:notify(event, ...)

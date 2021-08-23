@@ -40,7 +40,7 @@ function class(classname, ...)
 	function new(class_type, ...)
 		local obj = {}
 		setmetatable(obj, { __index = class_type })
-		obj:ctor(...)
+		obj.ctor(obj,...)
 		return obj
 	end
 

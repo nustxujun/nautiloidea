@@ -31,7 +31,7 @@ function Pipeline:refresh()
     p = self.pipeline
     p:reset()
     for k,v in pairs(self.passes) do 
-        p:add_pass(v:get_render_pass())
+        p:add_pass(v.name, v:get_render_pass())
     end
     self.is_dirty = false
 end
