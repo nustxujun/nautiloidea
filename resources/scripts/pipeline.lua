@@ -4,17 +4,27 @@ require("class")
 
 Pipeline = class("Pipeline")
 
-function Pipeline:ctor()
+function Pipeline:ctor(name)
+    self.name = name
     self.pipeline = render.Pipeline.new()
     self.passes = {}
+    self.is_dirty = true
 end
 
 function Pipeline:execute()
+    if self.is_dirty then 
+        self:refresh()
+    end
     self.pipeline:execute()
 end
 
 function Pipeline:reset()
     self.pipeline.reset()
+    self.passes = {}
+end
+
+function Pipeline:dirty()
+    self.is_dirty = true
 end
 
 function Pipeline:refresh()
@@ -23,6 +33,29 @@ function Pipeline:refresh()
     for k,v in pairs(self.passes) do 
         p:add_pass(v:get_render_pass())
     end
+    self.is_dirty = false
+end
+
+function Pipeline:push_back(pass)
+    self:insert(#self.passes + 1, pass)
+end
+
+function Pipeline:insert(index, pass)
+    table.insert(self.passes, index, pass)
+    pass.pipeline = self
+end
+
+function Pipeline:pop_back()
+    self:erase(#self.passes)
+end
+
+function Pipeline:erase(index)
+    self.passes[index].pipeline = nil
+    table.erase(self.passes, index)
+end
+
+function Pipeline:get(index)
+    return self.passes[index]
 end
 
 
@@ -33,7 +66,7 @@ function PipelineQueue:ctor()
 end
 
 function PipelineQueue:create_pipeline(name)
-    local p = render.Pipeline.new()
+    local p = Pipeline(name)
     self.pipelines[name] = p
     return p
 end
@@ -56,16 +89,19 @@ function PipelineQueue:execute()
 end
 
 function PipelineQueue:set_ordered_pipelines(p)
+    local pipelines = self.pipelines
     self.ordered_pipelines = {}
     for k,v in pairs(p) do 
-        self.ordered_pipelines[k] = v
+        local pipeline = pipelines[v]
+        assert(pipeline ~= nil, v .. " is a exsited pipeline.")
+        self.ordered_pipelines[k] = pipeline
     end
 end
 
 function PipelineQueue:get_ordered_pipelines()
     tmp = {}
     for k,v in pairs(self.ordered_pipelines) do 
-        tmp[k] = v
+        tmp[k] = v.name
     end
     return tmp;
 end
