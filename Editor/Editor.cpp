@@ -2,7 +2,6 @@
 #include "Framework.h"
 #include "Profile.h"
 
-#include "ProfileWindow.h"
 #include "assimp/Importer.hpp"
 
 #include "Resources.h"

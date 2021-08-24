@@ -9,7 +9,6 @@
 #include "Mouse.h"
 #include "World.h"
 
-#include "ProfileWindow.h"
 #include <sol/sol.hpp>
 
 #include "lrdb/server.hpp"
