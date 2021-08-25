@@ -97,6 +97,17 @@ private:
 		REGISTER_ORIGIN(SameLine);
 		REGISTER_ORIGIN(NewLine);
 		REGISTER_ORIGIN(Spacing);
+
+		module["Image"] = +[](void* gpu_handle, float width, float height, sol::table uv_range) {
+			ImVec2 uv_min = {0,0};
+			ImVec2 uv_max = { 1,1 };
+			if (uv_range.valid() && uv_range.size() == 4)
+			{
+				uv_min = { float(uv_range[1]), float(uv_range[2]) };
+				uv_max = { float(uv_range[3]), float(uv_range[4]) };
+			}
+			return ImGui::Image(gpu_handle, { width, height }, uv_min, uv_max);
+		};
 		
 		module["MenuItem"] = (bool(*)(const char* , const char* , bool , bool ))&ImGui::MenuItem;
 

@@ -8,6 +8,7 @@ function WindowBase:ctor()
 	self.window_command_list = {}
 	self.visible = true
 	self.style_var_list = {}
+	self.is_drawn = false
 end
 
 function WindowBase:add_window_command(name, cmd)
@@ -56,7 +57,8 @@ function WindowBase:update()
 		return 
 	end
 	self:push_style_var()
-	if self:begin_window() then 
+	self.is_drawn = self:begin_window()
+	if self.is_drawn then 
 		self:pop_style_var()
 		self:do_window_command()
 		self:update_children()
@@ -136,7 +138,7 @@ function Operator:update()
 	if not self.visible then 
 		return 
 	end
-	self:begin_window()
+	self.is_drawn = self:begin_window()
 end 
 
 -- Widget -------------------------------------------------------
@@ -150,7 +152,7 @@ function LightWidget:update()
 		return 
 	end
 	self:push_style_var()
-	self:begin_window()
+	self.is_drawn = self:begin_window()
 	self:pop_style_var()
 end
 
@@ -196,7 +198,8 @@ function Window:update()
 		return 
 	end
 	self:push_style_var()
-	if self:begin_window() then 
+	self.is_drawn = self:begin_window()
+	if self.is_drawn then 
 		self:pop_style_var()
 		self:add_dock_node()
 		self:do_window_command()
@@ -417,7 +420,8 @@ function ChildWindow:end_window()
 end
 
 function ChildWindow:update()
-	if self:begin_window() then 
+	self.is_drawn = self:begin_window()
+	if self.is_drawn then 
 		self:do_window_command()
 		self:update_children()
 	end
@@ -445,6 +449,20 @@ end
 
 function MenuItem:set_callback(cb)
 	self.callback = cb or function() end
+end
+
+-- Image ---------------------------------------------------
+Image = class("Image", LightWidget)
+function Image:ctor(tex_handle, width, height,uv_range)
+	self.super(LightWidget).ctor(self)
+	self.texture = tex_handle
+	self.width = width 
+	self.height = height
+	self.uv_range = uv_range or {0,0, 1,1}
+end
+
+function Image:begin_window()
+	return imgui.Image(self.texture:get_gpu_descriptor_handle(), self.width, self.height, self.uv_range)
 end
 
 -- Columns ---------------------------------------------------
