@@ -7,38 +7,15 @@
 #include "Material.h"
 
 
-class StaticMeshResource :public Resource
-{
-	IS_RESOURCE()
-public:
-	std::string type() override
-	{
-		return "StaticMesh";
-	}
-
-	void interact() override;
-	Node::Ptr load();
-
-	std::vector<MaterialResource::Ptr> materials;
-private:
-	SceneObject::Ptr parseMesh(struct aiMesh* aimesh);
-};
-
 class StaticMesh : public RenderObject
 {
-	friend class StaticMeshResource;
+	friend class StaticMeshLoader;
 public:
 	void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) override;
-	void draw(Renderer::CommandList * cmdlist) override;
-
-
-
-	void changeMeshResource(Resource::Ptr res) ;
+	void draw(Renderer::CommandList* cmdlist) override;
 
 private:
-	void loadMesh();
-private:
-	Resource::Ptr mMeshResource ;
+	Resource::Ptr mMeshResource;
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mLayout;
 
@@ -47,3 +24,13 @@ private:
 	Material::Ptr mMaterial;
 	size_t mIndexCount;
 };
+
+class StaticMeshLoader 
+{
+public:
+	Node::Ptr operator()(std::string_view path);
+	std::vector<MaterialResource::Ptr> materials;
+private:
+	StaticMesh::Ptr parseMesh(struct aiMesh* aimesh);
+};
+

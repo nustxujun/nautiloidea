@@ -16,6 +16,7 @@ struct SceneObject: public AutoObject<SceneObject>
 
 struct RenderObject: SceneObject
 {
+	using Ptr = std::shared_ptr<RenderObject>;
 	virtual void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) = 0;
 	virtual void draw(Renderer::CommandList * cmdlist) = 0;
 };
@@ -24,7 +25,7 @@ class Node: public AutoObject<Node>
 {
 	friend class World;
 public:
-	Node(World* w);
+	Node();
 	~Node();
 
 	void setParent(Ref p);
@@ -52,7 +53,6 @@ public:
 	std::vector<SceneObject::Ptr> objects;
 
 private:
-	World* mWorld = 0;
 	Ref mParent ;
 
 	DirectX::SimpleMath::Matrix transform = DirectX::SimpleMath::Matrix::Identity;

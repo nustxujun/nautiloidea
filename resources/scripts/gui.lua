@@ -1,7 +1,47 @@
 require("class")
-WindowBase = class("WindowBase")
+
+
+
+local PropertyMonitor = class("PropertyMonitor")
+function PropertyMonitor:ctor()
+	self.property_getter = {}
+	self.listeners = {}
+end
+
+function PropertyMonitor:add_property(prop, getter)
+	self.property_getter[prop] = getter
+end
+
+function PropertyMonitor:add_listener(prop, key, func)
+	function tbl()
+		local t = {}
+		setmetatable(t, {__mode = "k"});
+		return t
+	end
+	self.listeners[prop] = self.listeners[prop] or tbl()
+	self.listeners[prop][key] = func
+end
+
+function PropertyMonitor:update(win)
+	for k, v in pairs(self.property_getter) do 
+		local ret = v()
+		local need_notify = false
+		for i,j in pairs(ret) do 
+			if win[i] ~= j then 
+				win[i] = j
+				need_notify = true
+			end
+		end
+		if self.listeners[k] then 
+			for i,j in pairs(self.listeners[k]) do 
+				j(ret)
+			end
+		end
+	end
+end
 
 -- WindowBase -------------------------------------------------------
+WindowBase = class("WindowBase")
 function WindowBase:ctor()
 	self.children = {}
 	self.remove_list = {}
@@ -9,6 +49,7 @@ function WindowBase:ctor()
 	self.visible = true
 	self.style_var_list = {}
 	self.is_drawn = false
+	self.property_monitor = PropertyMonitor()
 end
 
 function WindowBase:add_window_command(name, cmd)
@@ -19,6 +60,7 @@ function WindowBase:do_window_command()
 	for k,v in pairs(self.window_command_list) do 
 		v()
 	end
+	self.property_monitor:update()
 end
 
 function WindowBase:push_style_var()
@@ -129,6 +171,13 @@ function WindowBase:set_size(x, y)
 	end)
 end
 
+-- Root -----------------------------------------------------------
+Root = WindowBase()
+function tick()
+	-- imgui.ShowDemoWindow()
+	Root:update()
+end
+
 -- Operator -------------------------------------------------------
 Operator = class("Operator", WindowBase)
 function Operator:ctor()
@@ -157,13 +206,6 @@ function LightWidget:update()
 end
 
 
-
--- Root -----------------------------------------------------------
-Root = WindowBase()
-function tick()
-	-- imgui.ShowDemoWindow()
-	Root:update()
-end
 
 -- Window -------------------------------------------------------
 Window = class("Window", WindowBase)

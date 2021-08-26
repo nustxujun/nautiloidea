@@ -171,8 +171,8 @@ void Editor::executeScript(std::function<void()>&& call)
 		catch (std::exception& e)
 		{
 			std::cout << e.what() << std::endl;
-			auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
-			ret.get<sol::table>()["start"]();
+			/*auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
+			ret.get<sol::table>()["start"]();*/
 		}
 	}
 }
@@ -196,17 +196,7 @@ void Editor::callScript(sol::object func)
 
 void Editor::bindPipelineOperations(sol::state& state)
 {
-	auto opt = state["render"]["pipeline_operation"];
-	opt["render_scene"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass{
-		return PipelineOperation::renderScene(
-		{}, 
-		std::bind(&Editor::renderScene, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
-		rt,ds);
-	};
 
-	opt["render_ui"] = & PipelineOperation::renderUI;
-
-	opt["present"] = &PipelineOperation::present;
 
 }
 

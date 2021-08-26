@@ -95,3 +95,14 @@ FinalPass = class("FinalPass", Pass)
 function FinalPass:get_render_pass()
 	return render.pipeline_operation.present(self:get_device_resource("rt"))
 end
+
+
+ScenePass = class("ScenePass", Pass)
+
+function ScenePass:set_root(root)
+	self.root = root
+end
+
+function ScenePass:get_render_pass()
+	return render.pipeline_operation.render_scene(self.root, self:get_device_resource("rt"), self:get_device_resource("ds"))
+end

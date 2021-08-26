@@ -10,25 +10,13 @@
 #include <regex>
 #include <filesystem>
 
-REGISTER_FACTORY(StaticMeshResource, "fbx", "obj")
 
-void StaticMeshResource::interact()
+Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 {
-	Resource::interact();
-	if (ImGui::MenuItem("add to scene"))
-	{
-		auto& w = World::getInstance();
-		w.attachToRoot(load());
-	}
-}
-
-Node::Ptr StaticMeshResource::load()
-{
-	auto filepath = getPath();
 
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(filepath.string(),
+	const aiScene* scene = importer.ReadFile(filepath.data(),
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
 		aiProcess_GenNormals |
@@ -53,7 +41,7 @@ Node::Ptr StaticMeshResource::load()
 
 	auto buildScene = [&](auto& buildScene, const aiNode* node)-> Node::Ptr
 	{
-		auto sn = World::getInstance().createNode();
+		auto sn = std::make_shared<Node>();
 
 		for (uint32_t i = 0; i < node->mNumChildren; ++i)
 		{
@@ -72,7 +60,7 @@ Node::Ptr StaticMeshResource::load()
 	return buildScene(buildScene, scene->mRootNode);
 }
 
-SceneObject::Ptr StaticMeshResource::parseMesh(aiMesh* aimesh)
+StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 {
 	using Vector = DirectX::SimpleMath::Vector3;
 

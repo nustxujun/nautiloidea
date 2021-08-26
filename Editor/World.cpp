@@ -1,7 +1,6 @@
 #include "World.h"
 
-Node::Node(World* w):
-	mWorld(w)
+Node::Node():
 {
 }
 
