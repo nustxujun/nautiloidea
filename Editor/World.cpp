@@ -1,6 +1,6 @@
 #include "World.h"
 
-Node::Node():
+Node::Node()
 {
 }
 
@@ -42,7 +42,7 @@ World::~World()
 
 Node::Ptr World::createNode()
 {
-	auto n = std::make_shared<Node>(this);
+	auto n = std::make_shared<Node>();
 	return n;
 }
 

@@ -5,15 +5,15 @@ PassResource = class("PassResource")
 
 EVENT_RESET = "event_reset"
 
-function PassResource:ctor(event_resize_callback)
+function PassResource:ctor()
 	self.dispatcher = Dispatcher()
-	if event_resize_callback then 
-		local this = self
-		Globals.bind_event_window_resize(self,function()
-			event_resize_callback(this)
-		end)
-		event_resize_callback(self)
-	end
+	-- if event_resize_callback then 
+	-- 	local this = self
+	-- 	Globals.bind_event_window_resize(self,function()
+	-- 		event_resize_callback(this)
+	-- 	end)
+	-- 	event_resize_callback(self)
+	-- end
 end
 
 function PassResource:reset(type, width, height, format)

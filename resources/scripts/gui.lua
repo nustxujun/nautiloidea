@@ -3,14 +3,16 @@ require("class")
 
 
 local PropertyMonitor = class("PropertyMonitor")
+local property_getter = 
+{
+	get_window_size = imgui.GetWindowSize,
+	get_window_pos = imgui.GetWindowPos,
+}
+
 function PropertyMonitor:ctor()
-	self.property_getter = {}
 	self.listeners = {}
 end
 
-function PropertyMonitor:add_property(prop, getter)
-	self.property_getter[prop] = getter
-end
 
 function PropertyMonitor:add_listener(prop, key, func)
 	function tbl()
@@ -23,18 +25,18 @@ function PropertyMonitor:add_listener(prop, key, func)
 end
 
 function PropertyMonitor:update(win)
-	for k, v in pairs(self.property_getter) do 
-		local ret = v()
-		local need_notify = false
-		for i,j in pairs(ret) do 
-			if win[i] ~= j then 
-				win[i] = j
-				need_notify = true
+	for prop,cont in pairs(self.listeners) do 
+		local ret = property_getter[prop]()
+		local notify = false
+		for k,v in pairs(ret) do 
+			if win[k] ~= v then 
+				win[k] = v
+				notify = true
 			end
 		end
-		if self.listeners[k] then 
-			for i,j in pairs(self.listeners[k]) do 
-				j(ret)
+		if notify then 
+			for k,v in pairs(cont) do 
+				v(ret)
 			end
 		end
 	end
@@ -171,6 +173,9 @@ function WindowBase:set_size(x, y)
 	end)
 end
 
+function WindowBase:add_property_listener(prop, key, lis)
+	self.property_monitor:add_listener(prop, key, lis)
+end
 -- Root -----------------------------------------------------------
 Root = WindowBase()
 function tick()

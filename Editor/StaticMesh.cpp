@@ -167,7 +167,3 @@ void StaticMesh::draw(Renderer::CommandList * cmdlist)
 	cmdlist->drawIndexedInstanced(mIndexCount);
 }
 
-void StaticMesh::changeMeshResource(Resource::Ptr res)
-{
-	mMeshResource = res;
-}

@@ -11,7 +11,7 @@ void EditorLuaBinding::bindWorld(sol::state& state)
 		return std::make_shared<World>();
 	};
 
-	auto node = world.new_usertype<Node::Ptr>("Node");
+	auto node = world.new_usertype<Node>("Node");
 
 	world["load_static_mesh_from_file"] = &StaticMeshLoader::operator();
 
@@ -61,7 +61,6 @@ void EditorLuaBinding::bindRender(sol::state& state)
 	};
 
 
-	auto opt = render["pipeline_operation"];
 	//opt["render_scene"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass {
 	//	return PipelineOperation::renderScene(
 	//		{},
