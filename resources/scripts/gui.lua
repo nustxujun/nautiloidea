@@ -62,7 +62,7 @@ function WindowBase:do_window_command()
 	for k,v in pairs(self.window_command_list) do 
 		v()
 	end
-	self.property_monitor:update()
+	self.property_monitor:update(self)
 end
 
 function WindowBase:push_style_var()

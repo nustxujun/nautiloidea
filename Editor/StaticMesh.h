@@ -29,7 +29,7 @@ class StaticMeshLoader
 {
 public:
 	Node::Ptr operator()(std::string_view path);
-	std::vector<MaterialResource::Ptr> materials;
+	//std::vector<MaterialResource::Ptr> materials;
 private:
 	StaticMesh::Ptr parseMesh(struct aiMesh* aimesh);
 };

@@ -13,9 +13,11 @@ void EditorLuaBinding::bindWorld(sol::state& state)
 
 	auto node = world.new_usertype<Node>("Node");
 
-	world["load_static_mesh_from_file"] = &StaticMeshLoader::operator();
-
-
+	world["load_static_mesh_from_file"] = [](std::string path) {
+		return StaticMeshLoader()(path);
+	};
+	
+	world["attach_to_scene"] = &World::attachToRoot;
 }
 
 void EditorLuaBinding::bindRender(sol::state& state)
@@ -28,8 +30,29 @@ void EditorLuaBinding::bindRender(sol::state& state)
 	res_handle["get_gpu_descriptor_handle"] = [](ResourceHandle::Ptr rs) {
 		return (void*)rs->getView()->getShaderResource().ptr;
 	};
-	render["create_resource"] = [](int type, int width, int height, int fmt)->ResourceHandle::Ptr {
-		auto ret = ResourceHandle::create((Renderer::ViewType)type, width, height, (DXGI_FORMAT)fmt);
+	res_handle["set_clear_value"] = [](ResourceHandle::Ptr rs, sol::table val) {
+
+
+	};
+
+	render["create_resource"] = [](int type, int width, int height, int fmt, sol::table val)->ResourceHandle::Ptr {
+
+		Renderer::ClearValue cv;
+		if (val.valid())
+		{
+			if (type == Renderer::VT_RENDERTARGET)
+			{
+				for (int i = 0; i < 4; ++i)
+					cv.color[i] = val[i + 1];
+			}
+			else if (type == Renderer::VT_DEPTHSTENCIL)
+			{
+				cv.depth = val[1];
+				cv.stencil = val[2];
+			}
+		}
+
+		auto ret = ResourceHandle::create((Renderer::ViewType)type, width, height, (DXGI_FORMAT)fmt, cv);
 		return ret;
 	};
 
@@ -74,7 +97,7 @@ void EditorLuaBinding::bindRender(sol::state& state)
 			ros.push_back(ro);
 		});
 
-		PipelineOperation::renderScene({}, [ros = std::move(ros)](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask) {
+		return PipelineOperation::renderScene({}, [ros = std::move(ros)](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask) {
 			for (auto& ro : ros)
 				ro->draw(cmdlist);
 		}, rt, ds);

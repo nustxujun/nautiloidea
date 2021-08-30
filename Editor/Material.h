@@ -22,6 +22,8 @@ public:
 	void refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout);
 	Renderer::PipelineState::Ref getCurrentPipelineState()const;
 	void updateTextures(Renderer::Shader::ShaderType type, std::map<std::string, Texture::Ptr> textures, bool overwrite = false);
+
+	static Ptr createDefault(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout);
 private:
 	void refreshTexture();
 
@@ -31,20 +33,20 @@ private:
 };
 
 
-class MaterialResource :public Resource
-{
-	IS_RESOURCE()
-public:
-	using Ptr = std::shared_ptr<MaterialResource>;
-	std::string type() override
-	{
-		return "Material";
-	}
-
-
-	using Textures = std::map<std::string, Resource*>;
-	Textures textures;
-
-	using Shaders = std::map<Renderer::Shader::ShaderType, ShaderResource*>;
-	Shaders shaders;
-};
+//class MaterialResource :public Resource
+//{
+//	IS_RESOURCE()
+//public:
+//	using Ptr = std::shared_ptr<MaterialResource>;
+//	std::string type() override
+//	{
+//		return "Material";
+//	}
+//
+//
+//	using Textures = std::map<std::string, Resource*>;
+//	Textures textures;
+//
+//	using Shaders = std::map<Renderer::Shader::ShaderType, ShaderResource*>;
+//	Shaders shaders;
+//};

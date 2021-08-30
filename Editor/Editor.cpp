@@ -46,10 +46,11 @@ void Editor::init(bool debug_script)
 	char tmp[256] = {};
 	::GetCurrentDirectoryA(256,tmp);
 	Renderer::getSingleton()->addSearchPath("engine/");
-	Renderer::getSingleton()->addSearchPath("engine/Shaders/");
+	//Renderer::getSingleton()->addSearchPath("engine/Shaders/");
 	Renderer::getSingleton()->addSearchPath("Editor/");
 	Renderer::getSingleton()->addSearchPath("Editor/shaders/");
 	Renderer::getSingleton()->addSearchPath("resources/");
+	Renderer::getSingleton()->addSearchPath("resources/shaders/");
 
 	// framework
 	Framework::initialize();

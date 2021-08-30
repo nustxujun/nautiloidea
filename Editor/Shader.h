@@ -8,27 +8,13 @@
 class Shader : public AutoObject<Shader>
 {
 public:
+	static Ptr getDefaultVS();
+	static Ptr getDefaultPS();
+public:
 	Shader(Renderer::Shader::Ptr so);
 	Renderer::Shader::Ptr getShaderObject() { return mShaderObject; }
+	static Ptr load(std::string path);
 private:
 	Renderer::Shader::Ptr mShaderObject;
 
 };
-
-class ShaderResource : public Resource
-{
-	IS_RESOURCE()
-
-public:
-	std::string type() override
-	{
-		return "Shader";
-	}
-
-
-	Shader::Ptr load();
-
-	std::string path;
-};
-
-

@@ -81,7 +81,6 @@ public:
 	}
 
 
-	Node::Ptr createNode();
 	void attachToRoot(Node::Ptr n);
 	Node::Ptr getRoot()const {return mRoot;}
 	void visitRenderable(std::function<void(RenderObject::Ptr)>&& visitor);

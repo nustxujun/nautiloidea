@@ -31,7 +31,7 @@ void Node::addObject(SceneObject::Ptr o)
 
 void World::newWorld()
 {
-	mRoot = createNode();
+	mRoot = std::make_shared<Node>();
 }
 
 World::~World()
@@ -40,11 +40,6 @@ World::~World()
 }
 
 
-Node::Ptr World::createNode()
-{
-	auto n = std::make_shared<Node>();
-	return n;
-}
 
 void World::attachToRoot(Node::Ptr n)
 {

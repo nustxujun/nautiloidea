@@ -49,7 +49,7 @@ private:
 		type["pointer"] = &StringBuffer::pointer;
 
 
-		registerFunctions(module);
+		registerFunctions(module, lua);
 		return module;
 	}
 
@@ -61,7 +61,7 @@ private:
 		type["pointer"] = &T::pointer;
 	}
 
-	static void registerFunctions(sol::table& module)
+	static void registerFunctions(sol::table& module, sol::state_view lua)
 	{
 		module["ShowDemoWindow"] = []() {
 			ImGui::ShowDemoWindow();
@@ -139,6 +139,14 @@ private:
 
 		module["InputText"] = +[](std::string name, void* str_ptr, int flag){
 			return ImGui::InputText(name.c_str(), (char*)str_ptr, MAX_STRING_SIZE, flag);
+		};
+
+		module["GetWindowSize"] = [=]()mutable{
+			auto size = ImGui::GetWindowSize();
+			sol::table ret = lua.create_table();
+			ret["width"] = size.x;
+			ret["height"] = size.y;
+			return ret;
 		};
 
 

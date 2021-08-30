@@ -16,8 +16,8 @@ function PassResource:ctor()
 	-- end
 end
 
-function PassResource:reset(type, width, height, format)
-	self.resource = render.create_resource(type, width, height, format)
+function PassResource:reset(type, width, height, format, clean_value)
+	self.resource = render.create_resource(type, width, height, format,clean_value or {0,0,0,0})
 	self.dispatcher:notify(EVENT_RESET)
 end
 
@@ -33,11 +33,15 @@ function PassResource:unbind_reset_event(callback)
 	self.dispatcher:remove(EVENT_RESET, pipeline, callback)
 end
 
+function PassResource:get_gpu_descriptor_handle()
+	return self.resource:get_gpu_descriptor_handle()
+end
 
 Pass = class("Pass")
 
 
 function Pass:ctor(name)
+	assert(name ~= nil)
 	self.resources = {}
 	self.name = name
 end
@@ -59,6 +63,9 @@ function Pass:bind_resource(name, res)
 end
 
 function Pass:dirty()
+	if not self.pipeline then 
+		return
+	end
 	self.pipeline:dirty();
 end
 

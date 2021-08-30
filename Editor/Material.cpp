@@ -1,6 +1,6 @@
 #include "Material.h"
 
-REGISTER_FACTORY(MaterialResource, "mtl","mat")
+//REGISTER_FACTORY(MaterialResource, "mtl","mat")
 
 Material::~Material()
 {
@@ -9,6 +9,13 @@ Material::~Material()
 		r->destroyPipelineState(pso.second);
 		
 
+}
+
+Material::Ptr Material::createDefault(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
+{
+	auto mat = std::make_shared<Material>();
+	mat->refresh(std::move(shaders), layout);
+	return mat;
 }
 
 void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)

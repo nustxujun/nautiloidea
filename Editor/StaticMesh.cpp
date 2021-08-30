@@ -134,7 +134,8 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 		if (aimesh->HasVertexColors(0))
 		{
 			auto color = aimesh->mColors[0] + i;
-			write(*color);
+			int uc = ((int)(color->r / 255.0f) << 24) + (int(color->g / 255.0f) << 16) + (int(color->b / 255.0f) << 8) + int(color->a / 255.0f);
+			write(uc);
 		}
 	}
 
@@ -150,6 +151,8 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 	mesh->mIndices = r->createBuffer((UINT)numIndices * 4, 4, false, D3D12_HEAP_TYPE_DEFAULT, indices.data(), numIndices * 4);
 	mesh->name = aimesh->mName.C_Str();
 	mesh->mIndexCount = numIndices;
+
+	mesh->mMaterial = Material::createDefault({Shader::getDefaultVS(), Shader::getDefaultPS()}, mesh->mLayout);
 	return mesh;
 }
 
@@ -161,6 +164,7 @@ void StaticMesh::updateConstants(std::function<void(Renderer::PipelineState::Ref
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
+	cmdlist->setPrimitiveType();
 	cmdlist->setPipelineState(mMaterial->getCurrentPipelineState());
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);
