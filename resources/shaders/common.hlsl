@@ -24,6 +24,10 @@ struct LightInfo
 
 cbuffer CommonConstants
 {
+
+	matrix view; 
+	matrix proj;
+
 	// camera
 	float4 campos;
 	float4 camdir;
@@ -38,6 +42,8 @@ cbuffer CommonConstants
 
 	float deltatime;
 	float time;
+
+
 };
 
 half3 calNormal(

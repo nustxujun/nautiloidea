@@ -53,7 +53,6 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 			auto mesh = meshes[node->mMeshes[i]];
 			sn->addObject(mesh);
 		}
-	
 		return sn;
 	};
 
@@ -152,20 +151,18 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 	mesh->name = aimesh->mName.C_Str();
 	mesh->mIndexCount = numIndices;
 
-	mesh->mMaterial = Material::createDefault({Shader::getDefaultVS(), Shader::getDefaultPS()}, mesh->mLayout);
+	mesh->material = Material::createDefault({Shader::getDefaultVS(), Shader::getDefaultPS()}, mesh->mLayout);
 	return mesh;
 }
 
 
-void StaticMesh::updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater)
-{
-	updater(mMaterial->getCurrentPipelineState());
-}
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
+	material->setVariable(Renderer::Shader::ST_VERTEX, "world", parentNode.lock()->transform);
+
 	cmdlist->setPrimitiveType();
-	cmdlist->setPipelineState(mMaterial->getCurrentPipelineState());
+	cmdlist->setPipelineState(material->getCurrentPipelineState());
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);
 	cmdlist->drawIndexedInstanced(mIndexCount);

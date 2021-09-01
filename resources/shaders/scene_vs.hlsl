@@ -3,11 +3,10 @@
 #define ENTRY_POINT vs
 #define TARGET vs_5_0
 
-cbuffer VSConstant
+cbuffer PrivateConstants
 {
 	matrix world;
-	matrix view; 
-	matrix proj;
+
 	matrix nworld;
 };
 

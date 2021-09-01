@@ -73,6 +73,18 @@ void Editor::init(bool debug_script)
 	World::getInstance().newWorld();
 
 	initLua(debug_script);
+
+
+	auto constants = Material::getSharedConstants("CommonConstants");
+
+	using M = DirectX::SimpleMath::Matrix;
+	M view = M::CreateLookAt({ 0,0,-50 }, { 0,0,0 }, { 0,1,0 }).Transpose();
+	M proj = M::CreatePerspectiveFieldOfView(0.75, float(size.first) / float(size.second), 0.1f, 100.0f).Transpose();
+
+	CommonConstants c;
+	memcpy(&c.view, &view, sizeof(c.view));
+	memcpy(&c.proj, &proj, sizeof(c.proj));
+	constants->blit(&c);
 }
 
 Editor::~Editor()
@@ -413,9 +425,7 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 
 	for (auto& ro : ros)
 	{
-		ro->updateConstants([](auto pso){
-			
-		});
+
 
 		ro->draw(cmdlist);
 	}
@@ -423,6 +433,7 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 
 void Editor::updateImpl()
 {
+
 	updateTime();
 	executeScript([&]()
 		{

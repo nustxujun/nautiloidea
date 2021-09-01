@@ -24,6 +24,7 @@ void Node::setParent(Ref p)
 
 void Node::addObject(SceneObject::Ptr o)
 {
+	o->parentNode = getShared();
 	objects.push_back(o);
 }
 

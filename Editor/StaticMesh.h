@@ -11,7 +11,6 @@ class StaticMesh : public RenderObject
 {
 	friend class StaticMeshLoader;
 public:
-	void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) override;
 	void draw(Renderer::CommandList* cmdlist) override;
 
 private:
@@ -21,7 +20,6 @@ private:
 
 	Renderer::Buffer::Ref mVertices;
 	Renderer::Buffer::Ref mIndices;
-	Material::Ptr mMaterial;
 	size_t mIndexCount;
 };
 

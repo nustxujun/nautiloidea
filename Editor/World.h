@@ -7,24 +7,38 @@
 #include "AutoObject.h"
 #include "SimpleMath.h"
 #include "Renderer.h"
+#include "Material.h"
 
+class Node;
 struct SceneObject: public AutoObject<SceneObject>
 {
 	std::string name;
+
+	std::weak_ptr<Node> parentNode;
+
+	virtual void update() {};
 	virtual ~SceneObject(){}
 };
 
 struct RenderObject: SceneObject
 {
 	using Ptr = std::shared_ptr<RenderObject>;
-	virtual void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) = 0;
 	virtual void draw(Renderer::CommandList * cmdlist) = 0;
+
+	Material::Ptr material;
+
 };
 
 class Node: public AutoObject<Node>
 {
 	friend class World;
 public:
+
+	std::vector<Ptr> children;
+	std::vector<SceneObject::Ptr> objects;
+	DirectX::SimpleMath::Matrix transform = DirectX::SimpleMath::Matrix::Identity;
+public:
+
 	Node();
 	~Node();
 
@@ -48,14 +62,9 @@ public:
 		}
 	}
 
-	
-	std::vector<Ptr> children;
-	std::vector<SceneObject::Ptr> objects;
-
 private:
 	Ref mParent ;
-
-	DirectX::SimpleMath::Matrix transform = DirectX::SimpleMath::Matrix::Identity;
+	bool mDirty = true;
 };
 
 class World

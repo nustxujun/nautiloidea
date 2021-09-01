@@ -96,8 +96,15 @@ void EditorLuaBinding::bindRender(sol::state& state)
 		root->visitObject<RenderObject>([&](RenderObject::Ptr ro) {
 			ros.push_back(ro);
 		});
-
-		return PipelineOperation::renderScene({}, [ros = std::move(ros)](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask) {
+		Pipeline::CameraInfo cam;
+		auto& desc = rt->getView()->getDesc();
+		cam.scissorRect = {0,0, (LONG)desc.Width, (LONG)desc.Height};
+		cam.viewport = { 0,0,(float)desc.Width, (float)desc.Height, 0.0f, 1.0f };
+		return PipelineOperation::renderScene(cam, [ros = std::move(ros)](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask) {
+			
+			cmdlist->setViewport(cam.viewport);
+			cmdlist->setScissorRect(cam.scissorRect);
+			
 			for (auto& ro : ros)
 				ro->draw(cmdlist);
 		}, rt, ds);

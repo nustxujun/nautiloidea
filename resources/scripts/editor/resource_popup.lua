@@ -16,7 +16,7 @@ function popup_ModelResource(res, popup)
 			local w = math.floor(win.width)
 			local h = math.floor(win.height)
 			rt:reset(1,w ,h ,10,{1.0,0.0,0.0,1.0})
-			ds:reset(2,w ,h ,45)
+			ds:reset(2,w ,h ,45, {1.0, 0})
 
 			preview_window.window:remove_all_children()
 			preview_window.window:add_child(Image(rt, w,h))
