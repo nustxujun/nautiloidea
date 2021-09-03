@@ -19,6 +19,12 @@ Material::Ptr Material::createDefault(std::vector<Shader::Ptr> shaders, const st
 	return mat;
 }
 
+void Material::setConstants(Renderer::Shader::ShaderType type, const std::string& name, Renderer::ConstantBuffer::Ptr constants)
+{
+	mPipelineStates[mCurrent]->setConstant(type, name, constants);
+}
+
+
 void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
 {
 	size_t hash = 0;
@@ -65,7 +71,6 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 
 	auto pso = mPipelineStates[mCurrent];
 	const std::string private_constants = "PrivateConstants";
-	const std::string common_constants = "CommonConstants";
 	for (int i = Renderer::Shader::ST_VERTEX; i < Renderer::Shader::ST_MAX_NUM; i++)
 	{
 		auto type = (Renderer::Shader::ShaderType)i;
@@ -75,7 +80,6 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 			mConstants[type] = cb;
 			pso->setConstant(type, private_constants, cb);
 		}
-		pso->setConstant(type, common_constants, getSharedConstants(common_constants));
 	}
 
 
@@ -101,16 +105,6 @@ void Material::updateTextures(Renderer::Shader::ShaderType type,std::map<std::st
 	refreshTexture();
 }
 
-Renderer::ConstantBuffer::Ptr Material::getSharedConstants(const std::string& name)
-{
-	return getConstants().get(name);
-}
-
-Material::SharedConstants& Material::getConstants()
-{
-	static SharedConstants sharedConstants;
-	return sharedConstants;
-}
 
 void Material::refreshTexture()
 {
@@ -126,14 +120,4 @@ void Material::refreshTexture()
 		}
 	}
 
-}
-
-Material::SharedConstants::SharedConstants()
-{
-	constants["CommonConstants"] = Renderer::getSingleton()->createConstantBuffer(sizeof(CommonConstants));
-}
-
-Renderer::ConstantBuffer::Ptr Material::SharedConstants::get(const std::string& name)
-{
-	return constants.at(name);
 }

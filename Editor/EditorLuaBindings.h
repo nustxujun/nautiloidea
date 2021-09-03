@@ -5,6 +5,8 @@
 class EditorLuaBinding
 {
 public:
+	static void bindMath(sol::state& state);
+
 	static void bindWorld(sol::state& state);
 
 	static void bindRender(sol::state& state);

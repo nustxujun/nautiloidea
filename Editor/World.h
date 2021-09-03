@@ -67,6 +67,38 @@ private:
 	bool mDirty = true;
 };
 
+struct Camera: public SceneObject
+{
+	struct CameraConstants
+	{
+		DirectX::SimpleMath::Matrix view;
+		DirectX::SimpleMath::Matrix proj;
+
+		float4 campos;
+		float4 camdir;
+	};
+
+	using Ptr = std::shared_ptr<Camera>;
+
+	
+	D3D12_VIEWPORT viewport;
+	D3D12_RECT scissor;
+
+	Camera();
+	void update();
+
+	void setView(const DirectX::SimpleMath::Vector3& eye, const DirectX::SimpleMath::Vector3& lookat, const DirectX::SimpleMath::Vector3& up);
+	void setProjection(float fov, float radio, float nearPlane, float farPlane);
+	void setViewport(float left, float top, float width, float height, float min_depth, float max_depth);
+	void setScissorRect(LONG left, LONG top, LONG right, LONG bottom);
+
+	Renderer::ConstantBuffer::Ptr getConstants() { return mHardwarebuffer; }
+private:
+	Renderer::ConstantBuffer::Ptr mHardwarebuffer;
+	CameraConstants mConstants;
+	bool mDirty = true;
+};
+
 class World
 {
 public:

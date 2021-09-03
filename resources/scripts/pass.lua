@@ -77,18 +77,6 @@ function Pass:get_device_resource(name)
 	return self.resources[name]:get_device_resource()
 end
 
-ScenePass = class("ScenePass", Pass)
-
-function ScenePass:get_render_pass()
-	self:check()
-	return render.pipeline_operation.render_scene(self:get_device_resource("rt"),self:get_device_resource('ds'))
-end
-
-function ScenePass:check()
-	assert(self.get_resource("rt") and self.get_resource("ds"))
-end
-
-
 GUIPass = class("GUIPass", Pass)
 
 function GUIPass:get_render_pass()
@@ -106,10 +94,16 @@ end
 
 ScenePass = class("ScenePass", Pass)
 
-function ScenePass:set_root(root)
+function ScenePass:ctor(name, root, camera)
+	self.super(Pass).ctor(self, name)
 	self.root = root
+	self.camera = camera
+end
+
+function ScenePass:check()
+	assert(self.get_resource("rt") and self.get_resource("ds"))
 end
 
 function ScenePass:get_render_pass()
-	return render.pipeline_operation.render_scene(self.root, self:get_device_resource("rt"), self:get_device_resource("ds"))
+	return render.pipeline_operation.render_scene(self.root, self.camera, self:get_device_resource("rt"), self:get_device_resource("ds"))
 end

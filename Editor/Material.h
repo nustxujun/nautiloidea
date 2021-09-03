@@ -32,19 +32,8 @@ public:
 		mConstants[type]->setVariable<T>(name, val);
 	}
 
-	static Renderer::ConstantBuffer::Ptr getSharedConstants(const std::string& name);
+	void setConstants(Renderer::Shader::ShaderType type, const std::string& name, Renderer::ConstantBuffer::Ptr constants);
 private:
-	struct SharedConstants
-	{
-		SharedConstants();
-		Renderer::ConstantBuffer::Ptr get(const std::string& name);
-
-		std::map<std::string, Renderer::ConstantBuffer::Ptr> constants;
-	};
-	static SharedConstants& getConstants();
-private:
-
-	
 
 	void refreshTexture();
 
@@ -55,32 +44,6 @@ private:
 };
 
 
-struct LightInfo
-{
-	float4 pos;
-	float4 dir;
-	float4 color;
-};
-struct CommonConstants
-{
-	matrix view;
-	matrix proj;
-
-	// camera
-	float4 campos;
-	float4 camdir;
-
-	// lights
-	LightInfo lights[4];
-
-	int numlights;
-	float3 sundir; // directional light dir
-
-	float4 suncolor;// directional light color
-
-	float deltatime;
-	float time;
-};
 
 
 //class MaterialResource :public Resource

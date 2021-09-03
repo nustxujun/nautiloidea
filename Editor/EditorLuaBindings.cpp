@@ -1,5 +1,17 @@
 #include "EditorLuaBindings.h"
 #include "StaticMesh.h"
+#include "World.h"
+
+
+void EditorLuaBinding::bindMath(sol::state& state)
+{
+	auto math3d = state.create_table();
+	state["math3d"] = math3d;
+	using Vec3 = DirectX::SimpleMath::Vector3;
+	auto vec3 = math3d.new_usertype<DirectX::SimpleMath::Vector3>("vec3", sol::constructors<Vec3(float,float,float)>());
+
+
+}
 
 
 void EditorLuaBinding::bindWorld(sol::state& state)
@@ -12,12 +24,20 @@ void EditorLuaBinding::bindWorld(sol::state& state)
 	};
 
 	auto node = world.new_usertype<Node>("Node");
+	auto cam = world.new_usertype<Camera>("Camera");
+	cam["set_viewport"] = &Camera::setViewport;
+	cam["set_scissor"] = &Camera::setScissorRect;
+	cam["set_projection"] = &Camera::setProjection;
+	cam["set_view"] = &Camera::setView;
 
 	world["load_static_mesh_from_file"] = [](std::string path) {
 		return StaticMeshLoader()(path);
 	};
 	
 	world["attach_to_scene"] = &World::attachToRoot;
+	world["create_camera"] = []() {
+		return std::make_shared<Camera>();
+	};
 }
 
 void EditorLuaBinding::bindRender(sol::state& state)
@@ -30,10 +50,7 @@ void EditorLuaBinding::bindRender(sol::state& state)
 	res_handle["get_gpu_descriptor_handle"] = [](ResourceHandle::Ptr rs) {
 		return (void*)rs->getView()->getShaderResource().ptr;
 	};
-	res_handle["set_clear_value"] = [](ResourceHandle::Ptr rs, sol::table val) {
 
-
-	};
 
 	render["create_resource"] = [](int type, int width, int height, int fmt, sol::table val)->ResourceHandle::Ptr {
 
@@ -91,19 +108,18 @@ void EditorLuaBinding::bindRender(sol::state& state)
 	//		rt, ds);
 	//};
 
-	opt["render_scene"] = [](Node::Ptr root, ResourceHandle::Ptr rt, ResourceHandle::Ptr ds) {
+	opt["render_scene"] = [](Node::Ptr root, Camera::Ptr cam, ResourceHandle::Ptr rt, ResourceHandle::Ptr ds) {
 		std::vector<RenderObject::Ptr> ros;
 		root->visitObject<RenderObject>([&](RenderObject::Ptr ro) {
 			ros.push_back(ro);
+			ro->material->setConstants(Renderer::Shader::ST_VERTEX, "CameraConstants", cam->getConstants());
 		});
-		Pipeline::CameraInfo cam;
 		auto& desc = rt->getView()->getDesc();
-		cam.scissorRect = {0,0, (LONG)desc.Width, (LONG)desc.Height};
-		cam.viewport = { 0,0,(float)desc.Width, (float)desc.Height, 0.0f, 1.0f };
-		return PipelineOperation::renderScene(cam, [ros = std::move(ros)](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& cam, UINT flags, UINT mask) {
-			
-			cmdlist->setViewport(cam.viewport);
-			cmdlist->setScissorRect(cam.scissorRect);
+
+		return PipelineOperation::renderScene({}, [ros = std::move(ros), cam](Renderer::CommandList* cmdlist, const Pipeline::CameraInfo& caminfo, UINT flags, UINT mask) {
+			cam->update();
+			cmdlist->setViewport(cam->viewport);
+			cmdlist->setScissorRect(cam->scissor);
 			
 			for (auto& ro : ros)
 				ro->draw(cmdlist);

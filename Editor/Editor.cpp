@@ -75,16 +75,16 @@ void Editor::init(bool debug_script)
 	initLua(debug_script);
 
 
-	auto constants = Material::getSharedConstants("CommonConstants");
+	//auto constants = Material::getSharedConstants("CommonConstants");
 
-	using M = DirectX::SimpleMath::Matrix;
-	M view = M::CreateLookAt({ 0,0,-50 }, { 0,0,0 }, { 0,1,0 }).Transpose();
-	M proj = M::CreatePerspectiveFieldOfView(0.75, float(size.first) / float(size.second), 0.1f, 100.0f).Transpose();
+	//using M = DirectX::SimpleMath::Matrix;
+	//M view = M::CreateLookAt({ 0,0,-50 }, { 0,0,0 }, { 0,1,0 }).Transpose();
+	//M proj = M::CreatePerspectiveFieldOfView(0.75, float(size.first) / float(size.second), 0.1f, 100.0f).Transpose();
 
-	CommonConstants c;
-	memcpy(&c.view, &view, sizeof(c.view));
-	memcpy(&c.proj, &proj, sizeof(c.proj));
-	constants->blit(&c);
+	//CommonConstants c;
+	//memcpy(&c.view, &view, sizeof(c.view));
+	//memcpy(&c.proj, &proj, sizeof(c.proj));
+	//constants->blit(&c);
 }
 
 Editor::~Editor()
@@ -107,6 +107,7 @@ void Editor::initLua(bool debug_script)
 
 
 	ImGuiLuaBinding::bind(mLuaState);
+	EditorLuaBinding::bindMath(mLuaState);
 	EditorLuaBinding::bindWorld(mLuaState);
 	EditorLuaBinding::bindRender(mLuaState);
 	bindPipelineOperations(mLuaState);
@@ -440,6 +441,7 @@ void Editor::updateImpl()
 			callScript(mLuaState["core"]["update_callback"]);
 		}
 	);
+
 	ImGuiPass::getInstance()->ready();
 	//mPipeline->execute({});
 }
