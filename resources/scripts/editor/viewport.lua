@@ -10,7 +10,7 @@ local pipeline_queue = PipelineQueue()
 local viewports = {}
 setmetatable(viewports, {__mode = "k"});
 
-Globals.bind_event_update(function()
+Globals.bind_event_update(Viewport, function()
 	local list = {}
 	for k,v in pairs(viewports) do 
 		local win = v.window

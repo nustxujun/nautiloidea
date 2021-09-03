@@ -7,24 +7,39 @@
 #include "AutoObject.h"
 #include "SimpleMath.h"
 #include "Renderer.h"
+#include "Material.h"
 
+class Node;
 struct SceneObject: public AutoObject<SceneObject>
 {
 	std::string name;
+
+	std::weak_ptr<Node> parentNode;
+
+	virtual void update() {};
 	virtual ~SceneObject(){}
 };
 
 struct RenderObject: SceneObject
 {
-	virtual void updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater) = 0;
+	using Ptr = std::shared_ptr<RenderObject>;
 	virtual void draw(Renderer::CommandList * cmdlist) = 0;
+
+	Material::Ptr material;
+
 };
 
 class Node: public AutoObject<Node>
 {
 	friend class World;
 public:
-	Node(World* w);
+
+	std::vector<Ptr> children;
+	std::vector<SceneObject::Ptr> objects;
+	DirectX::SimpleMath::Matrix transform = DirectX::SimpleMath::Matrix::Identity;
+public:
+
+	Node();
 	~Node();
 
 	void setParent(Ref p);
@@ -47,15 +62,41 @@ public:
 		}
 	}
 
-	
-	std::vector<Ptr> children;
-	std::vector<SceneObject::Ptr> objects;
-
 private:
-	World* mWorld = 0;
 	Ref mParent ;
+	bool mDirty = true;
+};
 
-	DirectX::SimpleMath::Matrix transform = DirectX::SimpleMath::Matrix::Identity;
+struct Camera: public SceneObject
+{
+	struct CameraConstants
+	{
+		DirectX::SimpleMath::Matrix view;
+		DirectX::SimpleMath::Matrix proj;
+
+		float4 campos;
+		float4 camdir;
+	};
+
+	using Ptr = std::shared_ptr<Camera>;
+
+	
+	D3D12_VIEWPORT viewport;
+	D3D12_RECT scissor;
+
+	Camera();
+	void update();
+
+	void setView(const DirectX::SimpleMath::Vector3& eye, const DirectX::SimpleMath::Vector3& lookat, const DirectX::SimpleMath::Vector3& up);
+	void setProjection(float fov, float radio, float nearPlane, float farPlane);
+	void setViewport(float left, float top, float width, float height, float min_depth, float max_depth);
+	void setScissorRect(LONG left, LONG top, LONG right, LONG bottom);
+
+	Renderer::ConstantBuffer::Ptr getConstants() { return mHardwarebuffer; }
+private:
+	Renderer::ConstantBuffer::Ptr mHardwarebuffer;
+	CameraConstants mConstants;
+	bool mDirty = true;
 };
 
 class World
@@ -81,7 +122,6 @@ public:
 	}
 
 
-	Node::Ptr createNode();
 	void attachToRoot(Node::Ptr n);
 	Node::Ptr getRoot()const {return mRoot;}
 	void visitRenderable(std::function<void(RenderObject::Ptr)>&& visitor);

@@ -46,10 +46,11 @@ void Editor::init(bool debug_script)
 	char tmp[256] = {};
 	::GetCurrentDirectoryA(256,tmp);
 	Renderer::getSingleton()->addSearchPath("engine/");
-	Renderer::getSingleton()->addSearchPath("engine/Shaders/");
+	//Renderer::getSingleton()->addSearchPath("engine/Shaders/");
 	Renderer::getSingleton()->addSearchPath("Editor/");
 	Renderer::getSingleton()->addSearchPath("Editor/shaders/");
 	Renderer::getSingleton()->addSearchPath("resources/");
+	Renderer::getSingleton()->addSearchPath("resources/shaders/");
 
 	// framework
 	Framework::initialize();
@@ -72,6 +73,18 @@ void Editor::init(bool debug_script)
 	World::getInstance().newWorld();
 
 	initLua(debug_script);
+
+
+	//auto constants = Material::getSharedConstants("CommonConstants");
+
+	//using M = DirectX::SimpleMath::Matrix;
+	//M view = M::CreateLookAt({ 0,0,-50 }, { 0,0,0 }, { 0,1,0 }).Transpose();
+	//M proj = M::CreatePerspectiveFieldOfView(0.75, float(size.first) / float(size.second), 0.1f, 100.0f).Transpose();
+
+	//CommonConstants c;
+	//memcpy(&c.view, &view, sizeof(c.view));
+	//memcpy(&c.proj, &proj, sizeof(c.proj));
+	//constants->blit(&c);
 }
 
 Editor::~Editor()
@@ -94,6 +107,7 @@ void Editor::initLua(bool debug_script)
 
 
 	ImGuiLuaBinding::bind(mLuaState);
+	EditorLuaBinding::bindMath(mLuaState);
 	EditorLuaBinding::bindWorld(mLuaState);
 	EditorLuaBinding::bindRender(mLuaState);
 	bindPipelineOperations(mLuaState);
@@ -171,8 +185,8 @@ void Editor::executeScript(std::function<void()>&& call)
 		catch (std::exception& e)
 		{
 			std::cout << e.what() << std::endl;
-			auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
-			ret.get<sol::table>()["start"]();
+			/*auto ret = mLuaState.safe_script_file("resources/scripts/debugger.lua");
+			ret.get<sol::table>()["start"]();*/
 		}
 	}
 }
@@ -196,17 +210,7 @@ void Editor::callScript(sol::object func)
 
 void Editor::bindPipelineOperations(sol::state& state)
 {
-	auto opt = state["render"]["pipeline_operation"];
-	opt["render_scene"] = [this](ResourceHandle::Ptr rt, ResourceHandle::Ptr ds)->RenderGraph::RenderPass{
-		return PipelineOperation::renderScene(
-		{}, 
-		std::bind(&Editor::renderScene, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4),
-		rt,ds);
-	};
 
-	opt["render_ui"] = & PipelineOperation::renderUI;
-
-	opt["present"] = &PipelineOperation::present;
 
 }
 
@@ -422,9 +426,7 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 
 	for (auto& ro : ros)
 	{
-		ro->updateConstants([](auto pso){
-			
-		});
+
 
 		ro->draw(cmdlist);
 	}
@@ -432,12 +434,14 @@ void Editor::renderScene(Renderer::CommandList * cmdlist, const Pipeline::Camera
 
 void Editor::updateImpl()
 {
+
 	updateTime();
 	executeScript([&]()
 		{
 			callScript(mLuaState["core"]["update_callback"]);
 		}
 	);
+
 	ImGuiPass::getInstance()->ready();
 	//mPipeline->execute({});
 }

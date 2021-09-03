@@ -5,19 +5,19 @@ PassResource = class("PassResource")
 
 EVENT_RESET = "event_reset"
 
-function PassResource:ctor(event_resize_callback)
+function PassResource:ctor()
 	self.dispatcher = Dispatcher()
-	if event_resize_callback then 
-		local this = self
-		Globals.bind_event_window_resize(self,function()
-			event_resize_callback(this)
-		end)
-		event_resize_callback(self)
-	end
+	-- if event_resize_callback then 
+	-- 	local this = self
+	-- 	Globals.bind_event_window_resize(self,function()
+	-- 		event_resize_callback(this)
+	-- 	end)
+	-- 	event_resize_callback(self)
+	-- end
 end
 
-function PassResource:reset(type, width, height, format)
-	self.resource = render.create_resource(type, width, height, format)
+function PassResource:reset(type, width, height, format, clean_value)
+	self.resource = render.create_resource(type, width, height, format,clean_value or {0,0,0,0})
 	self.dispatcher:notify(EVENT_RESET)
 end
 
@@ -33,11 +33,15 @@ function PassResource:unbind_reset_event(callback)
 	self.dispatcher:remove(EVENT_RESET, pipeline, callback)
 end
 
+function PassResource:get_gpu_descriptor_handle()
+	return self.resource:get_gpu_descriptor_handle()
+end
 
 Pass = class("Pass")
 
 
 function Pass:ctor(name)
+	assert(name ~= nil)
 	self.resources = {}
 	self.name = name
 end
@@ -59,6 +63,9 @@ function Pass:bind_resource(name, res)
 end
 
 function Pass:dirty()
+	if not self.pipeline then 
+		return
+	end
 	self.pipeline:dirty();
 end
 
@@ -69,18 +76,6 @@ end
 function Pass:get_device_resource(name)
 	return self.resources[name]:get_device_resource()
 end
-
-ScenePass = class("ScenePass", Pass)
-
-function ScenePass:get_render_pass()
-	self:check()
-	return render.pipeline_operation.render_scene(self:get_device_resource("rt"),self:get_device_resource('ds'))
-end
-
-function ScenePass:check()
-	assert(self.get_resource("rt") and self.get_resource("ds"))
-end
-
 
 GUIPass = class("GUIPass", Pass)
 
@@ -94,4 +89,21 @@ FinalPass = class("FinalPass", Pass)
 
 function FinalPass:get_render_pass()
 	return render.pipeline_operation.present(self:get_device_resource("rt"))
+end
+
+
+ScenePass = class("ScenePass", Pass)
+
+function ScenePass:ctor(name, root, camera)
+	self.super(Pass).ctor(self, name)
+	self.root = root
+	self.camera = camera
+end
+
+function ScenePass:check()
+	assert(self.get_resource("rt") and self.get_resource("ds"))
+end
+
+function ScenePass:get_render_pass()
+	return render.pipeline_operation.render_scene(self.root, self.camera, self:get_device_resource("rt"), self:get_device_resource("ds"))
 end

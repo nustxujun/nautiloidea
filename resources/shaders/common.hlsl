@@ -13,7 +13,22 @@ struct PSInput
 	float3 binormal: NORMAL2;
 
 	float4 worldPos: COLOR0;
-	float4 color: COLOR1;
+};
+
+
+cbuffer GlobalConstants
+{
+	float deltatime;
+	float time;
+};
+
+cbuffer CameraConstants
+{
+	matrix view; 
+	matrix proj;
+
+	float4 campos;
+	float4 camdir;
 };
 
 struct LightInfo
@@ -23,22 +38,14 @@ struct LightInfo
 	float4 color;
 };
 
-cbuffer CommonConstants
+cbuffer LightsConstants
 {
-	// camera
-	float4 campos;
-	float4 camdir;
-
-	// lights
 	LightInfo lights[4];
 
 	int numlights;
 	float3 sundir; // directional light dir
 	
 	float4 suncolor;// directional light color
-
-	float deltatime;
-	float time;
 };
 
 half3 calNormal(

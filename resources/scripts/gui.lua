@@ -1,7 +1,49 @@
 require("class")
-WindowBase = class("WindowBase")
+
+
+
+local PropertyMonitor = class("PropertyMonitor")
+local property_getter = 
+{
+	get_window_size = imgui.GetWindowSize,
+	get_window_pos = imgui.GetWindowPos,
+}
+
+function PropertyMonitor:ctor()
+	self.listeners = {}
+end
+
+
+function PropertyMonitor:add_listener(prop, key, func)
+	function tbl()
+		local t = {}
+		setmetatable(t, {__mode = "k"});
+		return t
+	end
+	self.listeners[prop] = self.listeners[prop] or tbl()
+	self.listeners[prop][key] = func
+end
+
+function PropertyMonitor:update(win)
+	for prop,cont in pairs(self.listeners) do 
+		local ret = property_getter[prop]()
+		local notify = false
+		for k,v in pairs(ret) do 
+			if win[k] ~= v then 
+				win[k] = v
+				notify = true
+			end
+		end
+		if notify then 
+			for k,v in pairs(cont) do 
+				v(ret)
+			end
+		end
+	end
+end
 
 -- WindowBase -------------------------------------------------------
+WindowBase = class("WindowBase")
 function WindowBase:ctor()
 	self.children = {}
 	self.remove_list = {}
@@ -9,6 +51,7 @@ function WindowBase:ctor()
 	self.visible = true
 	self.style_var_list = {}
 	self.is_drawn = false
+	self.property_monitor = PropertyMonitor()
 end
 
 function WindowBase:add_window_command(name, cmd)
@@ -19,6 +62,7 @@ function WindowBase:do_window_command()
 	for k,v in pairs(self.window_command_list) do 
 		v()
 	end
+	self.property_monitor:update(self)
 end
 
 function WindowBase:push_style_var()
@@ -129,6 +173,16 @@ function WindowBase:set_size(x, y)
 	end)
 end
 
+function WindowBase:add_property_listener(prop, key, lis)
+	self.property_monitor:add_listener(prop, key, lis)
+end
+-- Root -----------------------------------------------------------
+Root = WindowBase()
+function tick()
+	-- imgui.ShowDemoWindow()
+	Root:update()
+end
+
 -- Operator -------------------------------------------------------
 Operator = class("Operator", WindowBase)
 function Operator:ctor()
@@ -157,13 +211,6 @@ function LightWidget:update()
 end
 
 
-
--- Root -----------------------------------------------------------
-Root = WindowBase()
-function tick()
-	-- imgui.ShowDemoWindow()
-	Root:update()
-end
 
 -- Window -------------------------------------------------------
 Window = class("Window", WindowBase)

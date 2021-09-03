@@ -1,7 +1,6 @@
 #include "World.h"
 
-Node::Node(World* w):
-	mWorld(w)
+Node::Node()
 {
 }
 
@@ -25,6 +24,7 @@ void Node::setParent(Ref p)
 
 void Node::addObject(SceneObject::Ptr o)
 {
+	o->parentNode = getShared();
 	objects.push_back(o);
 }
 
@@ -32,7 +32,7 @@ void Node::addObject(SceneObject::Ptr o)
 
 void World::newWorld()
 {
-	mRoot = createNode();
+	mRoot = std::make_shared<Node>();
 }
 
 World::~World()
@@ -41,11 +41,6 @@ World::~World()
 }
 
 
-Node::Ptr World::createNode()
-{
-	auto n = std::make_shared<Node>(this);
-	return n;
-}
 
 void World::attachToRoot(Node::Ptr n)
 {
@@ -59,3 +54,39 @@ void World::visitRenderable(std::function<void(RenderObject::Ptr)>&& visitor)
 	});
 }
 
+
+Camera::Camera()
+{
+	mHardwarebuffer = Renderer::getSingleton()->createConstantBuffer(sizeof(CameraConstants));
+}
+
+void Camera::update()
+{
+	if (mDirty)
+	{
+		mDirty = false;
+		mHardwarebuffer->blit(&mConstants, 0, sizeof(mConstants));
+	}
+}
+
+void Camera::setView(const DirectX::SimpleMath::Vector3& eye, const DirectX::SimpleMath::Vector3& lookat, const DirectX::SimpleMath::Vector3& up)
+{
+	mConstants.view = DirectX::SimpleMath::Matrix::CreateLookAt(eye, lookat, up).Transpose();
+	mDirty = true;
+}
+
+void Camera::setProjection(float fov, float radio, float n, float f)
+{
+	mConstants.proj = DirectX::SimpleMath::Matrix::CreatePerspectiveFieldOfView(fov, radio, n, f).Transpose();
+	mDirty = true;
+}
+
+void Camera::setViewport(float left, float top, float width, float height, float min_depth, float max_depth)
+{
+	viewport = { left, top, width, height, min_depth, max_depth };
+}
+
+void Camera::setScissorRect(LONG left, LONG top, LONG right, LONG bottom)
+{
+	scissor = { left, top, right, bottom };
+}

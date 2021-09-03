@@ -3,11 +3,10 @@
 #define ENTRY_POINT vs
 #define TARGET vs_5_0
 
-cbuffer VSConstant
+cbuffer PrivateConstants
 {
 	matrix world;
-	matrix view; 
-	matrix proj;
+
 	matrix nworld;
 };
 
@@ -18,14 +17,12 @@ struct VSInput
 	float3 normal: NORMAL0;
 	float3 tangent: NORMAL1;
 	float3 binormal: NORMAL2;
-	float4 color: COLOR0;
 };
 
 PSInput vs(VSInput input)
 {
 	PSInput result;
 
-	result.color = input.color;
 	float4 worldpos = mul(float4(input.position,1), world);
 	result.worldPos = worldpos;
 

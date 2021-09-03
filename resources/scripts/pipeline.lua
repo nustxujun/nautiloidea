@@ -19,7 +19,7 @@ function Pipeline:execute()
 end
 
 function Pipeline:reset()
-    self.pipeline.reset()
+    self.pipeline:reset()
     self.passes = {}
 end
 
@@ -43,6 +43,7 @@ end
 function Pipeline:insert(index, pass)
     table.insert(self.passes, index, pass)
     pass.pipeline = self
+    self:dirty()
 end
 
 function Pipeline:pop_back()
@@ -52,6 +53,7 @@ end
 function Pipeline:erase(index)
     self.passes[index].pipeline = nil
     table.erase(self.passes, index)
+    self:dirty()
 end
 
 function Pipeline:get(index)

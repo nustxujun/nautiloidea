@@ -10,25 +10,13 @@
 #include <regex>
 #include <filesystem>
 
-REGISTER_FACTORY(StaticMeshResource, "fbx", "obj")
 
-void StaticMeshResource::interact()
+Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 {
-	Resource::interact();
-	if (ImGui::MenuItem("add to scene"))
-	{
-		auto& w = World::getInstance();
-		w.attachToRoot(load());
-	}
-}
-
-Node::Ptr StaticMeshResource::load()
-{
-	auto filepath = getPath();
 
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(filepath.string(),
+	const aiScene* scene = importer.ReadFile(filepath.data(),
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
 		aiProcess_GenNormals |
@@ -53,7 +41,7 @@ Node::Ptr StaticMeshResource::load()
 
 	auto buildScene = [&](auto& buildScene, const aiNode* node)-> Node::Ptr
 	{
-		auto sn = World::getInstance().createNode();
+		auto sn = std::make_shared<Node>();
 
 		for (uint32_t i = 0; i < node->mNumChildren; ++i)
 		{
@@ -65,14 +53,13 @@ Node::Ptr StaticMeshResource::load()
 			auto mesh = meshes[node->mMeshes[i]];
 			sn->addObject(mesh);
 		}
-	
 		return sn;
 	};
 
 	return buildScene(buildScene, scene->mRootNode);
 }
 
-SceneObject::Ptr StaticMeshResource::parseMesh(aiMesh* aimesh)
+StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 {
 	using Vector = DirectX::SimpleMath::Vector3;
 
@@ -146,7 +133,8 @@ SceneObject::Ptr StaticMeshResource::parseMesh(aiMesh* aimesh)
 		if (aimesh->HasVertexColors(0))
 		{
 			auto color = aimesh->mColors[0] + i;
-			write(*color);
+			int uc = ((int)(color->r / 255.0f) << 24) + (int(color->g / 255.0f) << 16) + (int(color->b / 255.0f) << 8) + int(color->a / 255.0f);
+			write(uc);
 		}
 	}
 
@@ -162,24 +150,21 @@ SceneObject::Ptr StaticMeshResource::parseMesh(aiMesh* aimesh)
 	mesh->mIndices = r->createBuffer((UINT)numIndices * 4, 4, false, D3D12_HEAP_TYPE_DEFAULT, indices.data(), numIndices * 4);
 	mesh->name = aimesh->mName.C_Str();
 	mesh->mIndexCount = numIndices;
+
+	mesh->material = Material::createDefault({Shader::getDefaultVS(), Shader::getDefaultPS()}, mesh->mLayout);
 	return mesh;
 }
 
 
-void StaticMesh::updateConstants(std::function<void(Renderer::PipelineState::Ref)>&& updater)
-{
-	updater(mMaterial->getCurrentPipelineState());
-}
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
-	cmdlist->setPipelineState(mMaterial->getCurrentPipelineState());
+	material->setVariable(Renderer::Shader::ST_VERTEX, "world", parentNode.lock()->transform);
+
+	cmdlist->setPrimitiveType();
+	cmdlist->setPipelineState(material->getCurrentPipelineState());
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);
 	cmdlist->drawIndexedInstanced(mIndexCount);
 }
 
-void StaticMesh::changeMeshResource(Resource::Ptr res)
-{
-	mMeshResource = res;
-}
