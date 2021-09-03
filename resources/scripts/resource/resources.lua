@@ -29,3 +29,11 @@ function ModelResource:ctor(path)
 	self.super(Resource).ctor(self,path)
 end
 
+-- TextureResource -------------------------------------------
+local TextureResource =class("TextureResource", Resource)
+TextureResource.type = "Texture"
+register_resource(TextureResource,"png","tga")
+
+function TextureResource:ctor(path)
+	self.super(Resource).ctor(self, path)
+end
