@@ -12,6 +12,7 @@ void Node::setParent(Ref p)
 {
 	if (!mParent.expired())
 	{
+		mParent.lock()->mDirty = true;
 		auto& ct = mParent.lock()->children;
 		ct.erase(std::remove(ct.begin(), ct.end(), getShared()));
 	}
@@ -20,14 +21,38 @@ void Node::setParent(Ref p)
 		p.lock()->children.push_back(getShared());
 
 	mParent = p;
+	p.lock()->mDirty = true;
 }
 
 void Node::addObject(SceneObject::Ptr o)
 {
 	o->parentNode = getShared();
 	objects.push_back(o);
+	mDirty = true;
 }
 
+void Node::update()
+{
+	for (auto& c : children)
+	{
+		c->mDirty |= mDirty;
+		c->update();
+	}
+
+	if (mDirty)
+	{
+		mDirty = false;
+		notifyTransformChanged();
+	}
+}
+
+void Node::notifyTransformChanged()
+{
+	for (auto& o : objects)
+	{
+		o->onTransformChanged(transform);
+	}
+}
 
 
 void World::newWorld()

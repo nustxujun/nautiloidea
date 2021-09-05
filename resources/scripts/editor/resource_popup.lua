@@ -10,6 +10,7 @@ function popup_ModelResource(res, popup)
 		preview_window:show()
 		local win = preview_window.window
 		local root = world.load_static_mesh_from_file(res.path)
+		root:update()
 		local rt = PassResource()
 		local ds = PassResource()
 		local camera = world.create_camera();

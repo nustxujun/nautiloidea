@@ -5,11 +5,6 @@
 
 Material::~Material()
 {
-	auto r = Renderer::getSingleton();
-	for (auto& pso : mPipelineStates)
-		r->destroyPipelineState(pso.second);
-		
-
 }
 
 Material::Ptr Material::createDefault(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
@@ -61,31 +56,30 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 			rs.setPrimitiveType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
 
 		auto renderer = Renderer::getSingleton();
-		auto pso = renderer->createPipelineState(shaderobjs, rs);
 
-		mPipelineStates[hash] = pso;
+		mPipelineStates[hash] = std::make_shared<Renderer::PipelineStateInstance>( rs, shaderobjs);
 		mCurrent = hash;
 
 		refreshTexture();
 	}
 
 	auto pso = mPipelineStates[mCurrent];
-	const std::string private_constants = "PrivateConstants";
+	const std::string material_constants = "MaterialConstants";
 	for (int i = Renderer::Shader::ST_VERTEX; i < Renderer::Shader::ST_MAX_NUM; i++)
 	{
 		auto type = (Renderer::Shader::ShaderType)i;
-		if (pso->hasConstantBuffer(type, private_constants))
+		if (pso->hasConstantBuffer(type, material_constants))
 		{
-			auto cb = pso->createConstantBuffer(type, private_constants);
+			auto cb = pso->createConstantBuffer(type, material_constants);
 			mConstants[type] = cb;
-			pso->setConstant(type, private_constants, cb);
+			pso->setConstant(type, material_constants, cb);
 		}
 	}
 
 
 }
 
-Renderer::PipelineState::Ref Material::getCurrentPipelineState() const
+Renderer::PipelineStateInstance::Ptr Material::getCurrentPipelineStateInstance() const
 {
 	auto ret = mPipelineStates.find(mCurrent);
 	if (ret == mPipelineStates.end())

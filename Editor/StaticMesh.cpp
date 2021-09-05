@@ -155,14 +155,27 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 	return mesh;
 }
 
+StaticMesh::StaticMesh()
+{
+	mConstants = Renderer::getSingleton()->createConstantBuffer(sizeof(PrivateConstants));
+}
+
+
+void StaticMesh::onTransformChanged(const DirectX::SimpleMath::Matrix& transform)
+{
+	PrivateConstants c;
+	c.world = transform;
+	mConstants->blit(&c,0, sizeof(PrivateConstants));
+	
+	//material->setVariable(Renderer::Shader::ST_VERTEX, "world", parentNode.lock()->transform);
+}
 
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
-	material->setVariable(Renderer::Shader::ST_VERTEX, "world", parentNode.lock()->transform);
-
 	cmdlist->setPrimitiveType();
-	cmdlist->setPipelineState(material->getCurrentPipelineState());
+	material->getCurrentPipelineStateInstance()->apply(cmdlist);
+	//cmdlist->setPipelineState();
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);
 	cmdlist->drawIndexedInstanced(mIndexCount);

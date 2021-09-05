@@ -24,6 +24,7 @@ void EditorLuaBinding::bindWorld(sol::state& state)
 	};
 
 	auto node = world.new_usertype<Node>("Node");
+	node["update"] = &Node::update;
 	auto cam = world.new_usertype<Camera>("Camera");
 	cam["set_viewport"] = &Camera::setViewport;
 	cam["set_scissor"] = &Camera::setScissorRect;

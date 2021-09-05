@@ -11,7 +11,15 @@ class StaticMesh : public RenderObject
 {
 	friend class StaticMeshLoader;
 public:
+	struct PrivateConstants
+	{
+		DirectX::SimpleMath::Matrix world;
+		DirectX::SimpleMath::Matrix nworld;
+	};
+public:
+	StaticMesh();
 	void draw(Renderer::CommandList* cmdlist) override;
+	void onTransformChanged(const DirectX::SimpleMath::Matrix& transform) override;
 
 private:
 	Resource::Ptr mMeshResource;

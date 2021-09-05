@@ -17,16 +17,17 @@ struct SceneObject: public AutoObject<SceneObject>
 	std::weak_ptr<Node> parentNode;
 
 	virtual void update() {};
+	virtual void onTransformChanged(const DirectX::SimpleMath::Matrix& transform){};
 	virtual ~SceneObject(){}
 };
 
-struct RenderObject: SceneObject
+struct RenderObject:public SceneObject
 {
 	using Ptr = std::shared_ptr<RenderObject>;
 	virtual void draw(Renderer::CommandList * cmdlist) = 0;
-
 	Material::Ptr material;
-
+protected:
+	Renderer::ConstantBuffer::Ptr mConstants;
 };
 
 class Node: public AutoObject<Node>
@@ -62,6 +63,9 @@ public:
 		}
 	}
 
+	void update();
+private:
+	void notifyTransformChanged();
 private:
 	Ref mParent ;
 	bool mDirty = true;
