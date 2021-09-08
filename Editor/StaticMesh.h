@@ -11,6 +11,7 @@ class StaticMesh : public RenderObject
 {
 	friend class StaticMeshLoader;
 public:
+	using Ptr = std::shared_ptr<StaticMesh>;
 	struct PrivateConstants
 	{
 		DirectX::SimpleMath::Matrix world;
@@ -20,6 +21,7 @@ public:
 	StaticMesh();
 	void draw(Renderer::CommandList* cmdlist) override;
 	void onTransformChanged(const DirectX::SimpleMath::Matrix& transform) override;
+	const std::vector<D3D12_INPUT_ELEMENT_DESC>& getLayout()const { return mLayout; }
 
 private:
 	Resource::Ptr mMeshResource;
@@ -38,6 +40,6 @@ public:
 	//std::vector<MaterialResource::Ptr> materials;
 private:
 	StaticMesh::Ptr parseMesh(struct aiMesh* aimesh);
-	Material::Ptr parseMaterial(struct aiMaterial* aimat);
+	Material::Ptr parseMaterial(struct aiMaterial* aimat, const std::string& root_path);
 };
 

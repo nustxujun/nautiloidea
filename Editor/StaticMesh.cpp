@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 #include "World.h"
 #include "D3DHelper.h"
+#include "Texture.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -13,6 +14,9 @@
 
 Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 {
+	std::filesystem::path path = filepath;
+	std::string dir = path.parent_path().string() + "/";
+
 
 	Assimp::Importer importer;
 
@@ -30,24 +34,29 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 		return 0;
 	}
 
-	std::vector<StaticMesh::Ptr> meshes;
-	for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
-	{
-		auto assimp_mesh = scene->mMeshes[i];
-		auto static_mesh = parseMesh(assimp_mesh);
-		meshes.push_back(static_mesh);
-	}
-
 	std::vector<Material::Ptr> materials;
 	if (scene->HasMaterials())
 	{
 		for (auto i = 0; i < scene->mNumMaterials; ++i)
 		{
 			auto ai_mat = scene->mMaterials[i];
-			auto mat = parseMaterial(ai_mat);
+			auto mat = parseMaterial(ai_mat, dir);
 			materials.push_back(mat);
 		}
 	}
+
+
+	std::vector<StaticMesh::Ptr> meshes;
+	for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+	{
+		auto assimp_mesh = scene->mMeshes[i];
+		auto static_mesh = parseMesh(assimp_mesh);
+		auto mat = materials[assimp_mesh->mMaterialIndex];
+		mat->refresh({ Shader::getDefaultVS(), Shader::getDefaultPS() }, static_mesh->getLayout());
+		static_mesh->material = mat;
+		meshes.push_back(static_mesh);
+	}
+
 
 
 	auto buildScene = [&](auto& buildScene, const aiNode* node)-> Node::Ptr
@@ -70,10 +79,11 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 	return buildScene(buildScene, scene->mRootNode);
 }
 
-Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat)
+Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat, const std::string& root_path)
 {
 	auto ret = std::make_shared<Material>();
-	auto getTex = [&](auto type) {
+	auto getTex = [&](auto type, bool srgb) 
+	{
 		if (aimat->GetTextureCount(type))
 		{
 			aiString path;
@@ -81,19 +91,18 @@ Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat)
 			UINT index;
 			aimat->GetTexture(type, 0, &path, &mapping, &index);
 			if (path.length == 0)
-				return std::string();
-			std::string realpath =  path.C_Str();
-			return realpath;
+				return Texture::Ptr();
+			std::string realpath = root_path +  path.C_Str();
+			return std::make_shared<Texture>(realpath, srgb);
 		}
-		return std::string();
+		return  Texture::Ptr();
 	};
 
-	auto tex = getTex(aiTextureType_DIFFUSE);
+	auto albedo = getTex(aiTextureType_DIFFUSE, true);
+	if (albedo)
+		ret->setTexture(Renderer::Shader::ST_PIXEL, "albedo", albedo);
 
-
-	ret->setTexture(Renderer::Shader::ST_PIXEL,"albedo")
-
-	return {};
+	return ret;
 }
 
 
@@ -219,8 +228,9 @@ void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
 	//material->setConstants(Renderer::Shader::ST_VERTEX, "PrivateConstants", mConstants);
 	material->updateCommandList(cmdlist);
-	cmdlist->setRootDescriptorTable(
-		material->getCurrentPipelineStateInstance()->getConstantBufferSlot(Renderer::Shader::ST_VERTEX, "PrivateConstants"), mConstants->getHandle());
+	cmdlist->setRootDescriptorTable( 
+		material->getCurrentPipelineStateInstance()->getConstantBufferSlot(Renderer::Shader::ST_VERTEX, "PrivateConstants"), 
+		mConstants->getHandle());
 	cmdlist->setPrimitiveType();
 	//material->getCurrentPipelineStateInstance()->apply(cmdlist);
 	//cmdlist->setPipelineState();
