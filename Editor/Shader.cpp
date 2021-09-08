@@ -5,13 +5,13 @@
 
 Shader::Ptr Shader::getDefaultVS()
 {
-	Ptr vs = Shader::load("scene_vs.hlsl");
+	static Ptr vs = Shader::load("scene_vs.hlsl");
 	return vs;
 }
 
 Shader::Ptr Shader::getDefaultPS()
 {
-	Ptr ps = Shader::load("scene_ps.hlsl");
+	static Ptr ps = Shader::load("scene_ps.hlsl");
 	return ps;
 }
 

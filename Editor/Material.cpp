@@ -16,7 +16,7 @@ Material::Ptr Material::createDefault(std::vector<Shader::Ptr> shaders, const st
 
 void Material::setConstants(Renderer::Shader::ShaderType type, const std::string& name, Renderer::ConstantBuffer::Ptr constants)
 {
-	mPipelineStates[mCurrent]->setConstant(type, name, constants);
+	mConstants[type][name] = constants;
 }
 
 
@@ -60,21 +60,20 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 		mPipelineStates[hash] = std::make_shared<Renderer::PipelineStateInstance>( rs, shaderobjs);
 		mCurrent = hash;
 
-		refreshTexture();
 	}
 
 	auto pso = mPipelineStates[mCurrent];
-	const std::string material_constants = "MaterialConstants";
-	for (int i = Renderer::Shader::ST_VERTEX; i < Renderer::Shader::ST_MAX_NUM; i++)
-	{
-		auto type = (Renderer::Shader::ShaderType)i;
-		if (pso->hasConstantBuffer(type, material_constants))
-		{
-			auto cb = pso->createConstantBuffer(type, material_constants);
-			mConstants[type] = cb;
-			pso->setConstant(type, material_constants, cb);
-		}
-	}
+	//const std::string material_constants = "MaterialConstants";
+	//for (int i = Renderer::Shader::ST_VERTEX; i < Renderer::Shader::ST_MAX_NUM; i++)
+	//{
+	//	auto type = (Renderer::Shader::ShaderType)i;
+	//	if (pso->hasConstantBuffer(type, material_constants))
+	//	{
+	//		auto cb = pso->createConstantBuffer(type, material_constants);
+	//		mConstants[type] = cb;
+	//		//pso->setConstant(type, material_constants, cb);
+	//	}
+	//}
 
 
 }
@@ -87,31 +86,28 @@ Renderer::PipelineStateInstance::Ptr Material::getCurrentPipelineStateInstance()
 	return ret->second;
 }
 
-void Material::updateTextures(Renderer::Shader::ShaderType type,std::map<std::string, Texture::Ptr> textures, bool overwrite)
+void Material::setTexture(Renderer::Shader::ShaderType type, const std::string& name, Texture::Ptr tex)
 {
-	if (overwrite)
-		mTextures[type].swap(textures);
-	else
-	{
-		for (auto& t: textures)
-			mTextures[type][t.first] = t.second;
-	}
-	refreshTexture();
+	mTextures[type][name] = tex;
 }
 
-
-void Material::refreshTexture()
+void Material::updateCommandList(Renderer::CommandList* cmdlist)
 {
-	auto& pso = mPipelineStates[mCurrent];
-
-
-	for (int i = 0; i < Renderer::Shader::ST_MAX_NUM; ++i)
+	auto cur = mPipelineStates[mCurrent];
+	cmdlist->setPipelineState(cur->getPipelineState());
+	for (auto& c : mConstants)
 	{
-		auto& textures = mTextures[i];
-		for (auto& item : textures)
+		for (auto& h : c.second)
 		{
-			pso->setResource((Renderer::Shader::ShaderType)i, item.first, item.second->getDeviceResource()->getShaderResource());
+			cmdlist->setRootDescriptorTable(cur->getConstantBufferSlot(c.first, h.first), h.second->getHandle());
 		}
 	}
 
+	for (auto& ts : mTextures)
+	{
+		for (auto& t : ts.second)
+		{
+			cmdlist->setRootDescriptorTable(cur->getResourceSlot(ts.first, t.first), t.second->getDeviceResource()->getShaderResource());
+		}
+	}
 }

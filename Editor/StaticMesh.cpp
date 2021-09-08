@@ -38,6 +38,17 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 		meshes.push_back(static_mesh);
 	}
 
+	std::vector<Material::Ptr> materials;
+	if (scene->HasMaterials())
+	{
+		for (auto i = 0; i < scene->mNumMaterials; ++i)
+		{
+			auto ai_mat = scene->mMaterials[i];
+			auto mat = parseMaterial(ai_mat);
+			materials.push_back(mat);
+		}
+	}
+
 
 	auto buildScene = [&](auto& buildScene, const aiNode* node)-> Node::Ptr
 	{
@@ -58,6 +69,34 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 
 	return buildScene(buildScene, scene->mRootNode);
 }
+
+Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat)
+{
+	auto ret = std::make_shared<Material>();
+	auto getTex = [&](auto type) {
+		if (aimat->GetTextureCount(type))
+		{
+			aiString path;
+			aiTextureMapping mapping;
+			UINT index;
+			aimat->GetTexture(type, 0, &path, &mapping, &index);
+			if (path.length == 0)
+				return std::string();
+			std::string realpath =  path.C_Str();
+			return realpath;
+		}
+		return std::string();
+	};
+
+	auto tex = getTex(aiTextureType_DIFFUSE);
+
+
+	ret->setTexture(Renderer::Shader::ST_PIXEL,"albedo")
+
+	return {};
+}
+
+
 
 StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 {
@@ -80,12 +119,15 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 
 	make_layout("POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT);
 	make_layout("NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT);
-	make_layout("NORMAL", 1, DXGI_FORMAT_R32G32B32_FLOAT);
-	make_layout("NORMAL", 2, DXGI_FORMAT_R32G32B32_FLOAT);
-
+	if (aimesh->HasTangentsAndBitangents())
+	{
+		make_layout("NORMAL", 1, DXGI_FORMAT_R32G32B32_FLOAT);
+		make_layout("NORMAL", 2, DXGI_FORMAT_R32G32B32_FLOAT);
+	}
 	if (aimesh->HasTextureCoords(0))
+	{
 		make_layout("TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT);
-
+	}
 	if (aimesh->HasVertexColors(0))
 		make_layout("COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 
@@ -117,12 +159,14 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 		auto norm = aimesh->mNormals + i;
 		write(*norm);
 
-		auto tan = aimesh->mTangents + i;
-		write(*tan);
+		if (aimesh->HasTangentsAndBitangents())
+		{
+			auto tan = aimesh->mTangents + i;
+			write(*tan);
+			auto  binorm = aimesh->mBitangents + i;
+			write(*binorm);
+		}
 
-		auto  binorm = aimesh->mBitangents + i;
-		write(*binorm);
-		
 		if (aimesh->HasTextureCoords(0))
 		{
 			auto uv = aimesh->mTextureCoords[0] + i;
@@ -173,8 +217,12 @@ void StaticMesh::onTransformChanged(const DirectX::SimpleMath::Matrix& transform
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
+	//material->setConstants(Renderer::Shader::ST_VERTEX, "PrivateConstants", mConstants);
+	material->updateCommandList(cmdlist);
+	cmdlist->setRootDescriptorTable(
+		material->getCurrentPipelineStateInstance()->getConstantBufferSlot(Renderer::Shader::ST_VERTEX, "PrivateConstants"), mConstants->getHandle());
 	cmdlist->setPrimitiveType();
-	material->getCurrentPipelineStateInstance()->apply(cmdlist);
+	//material->getCurrentPipelineStateInstance()->apply(cmdlist);
 	//cmdlist->setPipelineState();
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);

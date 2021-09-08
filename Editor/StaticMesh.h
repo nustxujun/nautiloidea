@@ -38,5 +38,6 @@ public:
 	//std::vector<MaterialResource::Ptr> materials;
 private:
 	StaticMesh::Ptr parseMesh(struct aiMesh* aimesh);
+	Material::Ptr parseMaterial(struct aiMaterial* aimat);
 };
 
