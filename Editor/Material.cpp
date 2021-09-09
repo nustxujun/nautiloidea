@@ -23,11 +23,9 @@ void Material::setConstants(Renderer::Shader::ShaderType type, const std::string
 void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout)
 {
 	size_t hash = 0;
-	std::vector<Renderer::Shader::Ptr> shaderobjs;
 	for (auto& s : shaders)
 	{
 		auto so = s->getShaderObject();
-		shaderobjs.push_back(so);
 		Common::hash_combine(hash, so->getHash());
 	}
 	for (auto& l : layout)
@@ -57,7 +55,7 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 
 		auto renderer = Renderer::getSingleton();
 
-		mPipelineStates[hash] = std::make_shared<Renderer::PipelineStateInstance>( rs, shaderobjs);
+		mPipelineStates[hash] = getSharedPipelineStateInstance( rs, shaders);
 		mCurrent = hash;
 
 	}
@@ -77,6 +75,25 @@ void Material::refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12
 
 
 }
+
+Renderer::PipelineStateInstance::Ptr Material::getSharedPipelineStateInstance(const Renderer::RenderState& rs, const std::vector<Shader::Ptr>& shaders)
+{
+	static std::unordered_map<size_t, Renderer::PipelineStateInstance::Ptr> sharedPipelineStates;
+	auto hash_value = rs.hash();
+	std::vector<Renderer::Shader::Ptr> shaderobjs;
+	for (auto& s : shaders)
+	{
+		shaderobjs.emplace_back(s->getShaderObject());
+		Common::hash_combine(hash_value, s->getShaderObject()->getHash());
+	}
+	auto ret = sharedPipelineStates.find(hash_value);
+	if (ret != sharedPipelineStates.end())
+		return ret->second;
+	auto pso = std::make_shared<Renderer::PipelineStateInstance>(rs, shaderobjs);
+	sharedPipelineStates[hash_value] = pso;
+	return pso;
+}
+
 
 Renderer::PipelineStateInstance::Ptr Material::getCurrentPipelineStateInstance() const
 {

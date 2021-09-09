@@ -28,6 +28,8 @@ public:
 	void updateCommandList(Renderer::CommandList* cmdlist);
 
 	void setTexture(Renderer::Shader::ShaderType type, const std::string& name, Texture::Ptr tex);
+
+	static Renderer::PipelineStateInstance::Ptr getSharedPipelineStateInstance(const Renderer::RenderState& rs, const std::vector<Shader::Ptr>& shaders);
 private:
 
 

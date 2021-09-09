@@ -44,7 +44,7 @@ public:
 	~Node();
 
 	void setParent(Ref p);
-
+	void setOffsetTransform(const DirectX::SimpleMath::Matrix& trans);
 	void addObject(SceneObject::Ptr o);
 
 	template<class T>
@@ -68,6 +68,7 @@ private:
 	void notifyTransformChanged();
 private:
 	Ref mParent ;
+	DirectX::SimpleMath::Matrix mOffsetTransform = DirectX::SimpleMath::Matrix::Identity;
 	bool mDirty = true;
 };
 

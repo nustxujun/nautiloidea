@@ -63,6 +63,10 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 	{
 		auto sn = std::make_shared<Node>();
 
+		DirectX::SimpleMath::Matrix mat;
+		memcpy(&mat, &node->mTransformation, sizeof(mat));
+		sn->setOffsetTransform(mat);
+
 		for (uint32_t i = 0; i < node->mNumChildren; ++i)
 		{
 			buildScene(buildScene, node->mChildren[i])->setParent(sn);
@@ -72,17 +76,32 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 		{
 			auto mesh = meshes[node->mMeshes[i]];
 			sn->addObject(mesh);
+
 		}
 		return sn;
 	};
 
-	return buildScene(buildScene, scene->mRootNode);
+	auto root = buildScene(buildScene, scene->mRootNode);
+	std::function<void(Node::Ptr)> optimize;
+	optimize= [&optimize](Node::Ptr node) {
+		std::vector<Node::Ptr> remove;
+		for (auto& n : node->children)
+		{
+			optimize(n);
+			if (n->children.empty() && n->objects.empty())
+				remove.push_back(n);
+		}
+		for (auto n : remove)
+			n->setParent({});
+	};
+	optimize(root);
+	return root;
 }
 
 Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat, const std::string& root_path)
 {
 	auto ret = std::make_shared<Material>();
-	auto getTex = [&](auto type, bool srgb) 
+	auto getTex = [&](auto type, bool srgb) ->Texture::Ptr
 	{
 		if (aimat->GetTextureCount(type))
 		{
@@ -91,11 +110,14 @@ Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat, const st
 			UINT index;
 			aimat->GetTexture(type, 0, &path, &mapping, &index);
 			if (path.length == 0)
-				return Texture::Ptr();
+				return {};
 			std::string realpath = root_path +  path.C_Str();
-			return std::make_shared<Texture>(realpath, srgb);
+			if (std::filesystem::exists(realpath))
+				return std::make_shared<Texture>(realpath, srgb);
+			else
+				return {};
 		}
-		return  Texture::Ptr();
+		return  {};
 	};
 
 	auto albedo = getTex(aiTextureType_DIFFUSE, true);
