@@ -18,10 +18,17 @@ void Node::setParent(Ref p)
 	}
 
 	if (!p.expired())
+	{
 		p.lock()->children.push_back(getShared());
-
+		p.lock()->mDirty = true;
+	}
 	mParent = p;
-	p.lock()->mDirty = true;
+}
+
+void Node::setOffsetTransform(const DirectX::SimpleMath::Matrix& trans)
+{
+	//transform = trans;
+	mDirty = true;
 }
 
 void Node::addObject(SceneObject::Ptr o)
@@ -33,17 +40,23 @@ void Node::addObject(SceneObject::Ptr o)
 
 void Node::update()
 {
+	if (mDirty)
+	{
+		mDirty = false;
+		if (!mParent.expired())
+			transform = mParent.lock()->transform * mOffsetTransform;
+		else
+			transform = mOffsetTransform;
+		notifyTransformChanged();
+	}
+
 	for (auto& c : children)
 	{
 		c->mDirty |= mDirty;
 		c->update();
 	}
 
-	if (mDirty)
-	{
-		mDirty = false;
-		notifyTransformChanged();
-	}
+
 }
 
 void Node::notifyTransformChanged()

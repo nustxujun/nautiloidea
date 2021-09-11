@@ -21,25 +21,21 @@ public:
 	~Material();
 	void refresh(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout);
 	Renderer::PipelineStateInstance::Ptr getCurrentPipelineStateInstance()const;
-	void updateTextures(Renderer::Shader::ShaderType type, std::map<std::string, Texture::Ptr> textures, bool overwrite = false);
 
 	static Ptr createDefault(std::vector<Shader::Ptr> shaders, const std::vector<D3D12_INPUT_ELEMENT_DESC>& layout);
-
-	template<class T>
-	void setVariable(Renderer::Shader::ShaderType type, std::string name, const T& val)
-	{
-		ASSERT(mConstants.find(type) != mConstants.end(), "material need to init");
-		mPipelineStates[mCurrent]->setVariable<T>(type,name, val);
-	}
-
 	void setConstants(Renderer::Shader::ShaderType type, const std::string& name, Renderer::ConstantBuffer::Ptr constants);
+
+	void updateCommandList(Renderer::CommandList* cmdlist);
+
+	void setTexture(Renderer::Shader::ShaderType type, const std::string& name, Texture::Ptr tex);
+
+	static Renderer::PipelineStateInstance::Ptr getSharedPipelineStateInstance(const Renderer::RenderState& rs, const std::vector<Shader::Ptr>& shaders);
 private:
 
-	void refreshTexture();
 
-	std::array<std::map<std::string, Texture::Ptr>, Renderer::Shader::ST_MAX_NUM> mTextures;
-	std::map<size_t, Renderer::PipelineStateInstance::Ptr> mPipelineStates;
-	std::map<Renderer::Shader::ShaderType, Renderer::ConstantBuffer::Ptr> mConstants;
+	std::unordered_map<Renderer::Shader::ShaderType,std::map<std::string, Texture::Ptr>> mTextures;
+	std::unordered_map<size_t, Renderer::PipelineStateInstance::Ptr> mPipelineStates;
+	std::unordered_map<Renderer::Shader::ShaderType, std::unordered_map<std::string, Renderer::ConstantBuffer::Ptr>> mConstants;
 	size_t mCurrent;
 };
 

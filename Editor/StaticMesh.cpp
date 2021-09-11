@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 #include "World.h"
 #include "D3DHelper.h"
+#include "Texture.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -13,6 +14,9 @@
 
 Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 {
+	std::filesystem::path path = filepath;
+	std::string dir = path.parent_path().string() + "/";
+
 
 	Assimp::Importer importer;
 
@@ -30,18 +34,38 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 		return 0;
 	}
 
+	std::vector<Material::Ptr> materials;
+	if (scene->HasMaterials())
+	{
+		for (auto i = 0; i < scene->mNumMaterials; ++i)
+		{
+			auto ai_mat = scene->mMaterials[i];
+			auto mat = parseMaterial(ai_mat, dir);
+			materials.push_back(mat);
+		}
+	}
+
+
 	std::vector<StaticMesh::Ptr> meshes;
 	for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
 	{
 		auto assimp_mesh = scene->mMeshes[i];
 		auto static_mesh = parseMesh(assimp_mesh);
+		auto mat = materials[assimp_mesh->mMaterialIndex];
+		mat->refresh({ Shader::getDefaultVS(), Shader::getDefaultPS() }, static_mesh->getLayout());
+		static_mesh->material = mat;
 		meshes.push_back(static_mesh);
 	}
+
 
 
 	auto buildScene = [&](auto& buildScene, const aiNode* node)-> Node::Ptr
 	{
 		auto sn = std::make_shared<Node>();
+
+		DirectX::SimpleMath::Matrix mat;
+		memcpy(&mat, &node->mTransformation, sizeof(mat));
+		sn->setOffsetTransform(mat);
 
 		for (uint32_t i = 0; i < node->mNumChildren; ++i)
 		{
@@ -52,12 +76,58 @@ Node::Ptr StaticMeshLoader::operator()(std::string_view filepath)
 		{
 			auto mesh = meshes[node->mMeshes[i]];
 			sn->addObject(mesh);
+
 		}
 		return sn;
 	};
 
-	return buildScene(buildScene, scene->mRootNode);
+	auto root = buildScene(buildScene, scene->mRootNode);
+	std::function<void(Node::Ptr)> optimize;
+	optimize= [&optimize](Node::Ptr node) {
+		std::vector<Node::Ptr> remove;
+		for (auto& n : node->children)
+		{
+			optimize(n);
+			if (n->children.empty() && n->objects.empty())
+				remove.push_back(n);
+		}
+		for (auto n : remove)
+			n->setParent({});
+	};
+	optimize(root);
+	return root;
 }
+
+Material::Ptr StaticMeshLoader::parseMaterial(struct aiMaterial* aimat, const std::string& root_path)
+{
+	auto ret = std::make_shared<Material>();
+	auto getTex = [&](auto type, bool srgb) ->Texture::Ptr
+	{
+		if (aimat->GetTextureCount(type))
+		{
+			aiString path;
+			aiTextureMapping mapping;
+			UINT index;
+			aimat->GetTexture(type, 0, &path, &mapping, &index);
+			if (path.length == 0)
+				return {};
+			std::string realpath = root_path +  path.C_Str();
+			if (std::filesystem::exists(realpath))
+				return std::make_shared<Texture>(realpath, srgb);
+			else
+				return {};
+		}
+		return  {};
+	};
+
+	auto albedo = getTex(aiTextureType_DIFFUSE, true);
+	if (albedo)
+		ret->setTexture(Renderer::Shader::ST_PIXEL, "albedo", albedo);
+
+	return ret;
+}
+
+
 
 StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 {
@@ -80,12 +150,15 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 
 	make_layout("POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT);
 	make_layout("NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT);
-	make_layout("NORMAL", 1, DXGI_FORMAT_R32G32B32_FLOAT);
-	make_layout("NORMAL", 2, DXGI_FORMAT_R32G32B32_FLOAT);
-
+	if (aimesh->HasTangentsAndBitangents())
+	{
+		make_layout("NORMAL", 1, DXGI_FORMAT_R32G32B32_FLOAT);
+		make_layout("NORMAL", 2, DXGI_FORMAT_R32G32B32_FLOAT);
+	}
 	if (aimesh->HasTextureCoords(0))
+	{
 		make_layout("TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT);
-
+	}
 	if (aimesh->HasVertexColors(0))
 		make_layout("COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 
@@ -117,12 +190,14 @@ StaticMesh::Ptr StaticMeshLoader::parseMesh(aiMesh* aimesh)
 		auto norm = aimesh->mNormals + i;
 		write(*norm);
 
-		auto tan = aimesh->mTangents + i;
-		write(*tan);
+		if (aimesh->HasTangentsAndBitangents())
+		{
+			auto tan = aimesh->mTangents + i;
+			write(*tan);
+			auto  binorm = aimesh->mBitangents + i;
+			write(*binorm);
+		}
 
-		auto  binorm = aimesh->mBitangents + i;
-		write(*binorm);
-		
 		if (aimesh->HasTextureCoords(0))
 		{
 			auto uv = aimesh->mTextureCoords[0] + i;
@@ -173,8 +248,13 @@ void StaticMesh::onTransformChanged(const DirectX::SimpleMath::Matrix& transform
 
 void StaticMesh::draw(Renderer::CommandList * cmdlist)
 {
+	//material->setConstants(Renderer::Shader::ST_VERTEX, "PrivateConstants", mConstants);
+	material->updateCommandList(cmdlist);
+	cmdlist->setRootDescriptorTable( 
+		material->getCurrentPipelineStateInstance()->getConstantBufferSlot(Renderer::Shader::ST_VERTEX, "PrivateConstants"), 
+		mConstants->getHandle());
 	cmdlist->setPrimitiveType();
-	material->getCurrentPipelineStateInstance()->apply(cmdlist);
+	//material->getCurrentPipelineStateInstance()->apply(cmdlist);
 	//cmdlist->setPipelineState();
 	cmdlist->setVertexBuffer(mVertices);
 	cmdlist->setIndexBuffer(mIndices);
